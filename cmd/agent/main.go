@@ -5,13 +5,13 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"os"
+	"os/signal"
 	"reflect"
 	"runtime"
 	"strings"
-	"time"
-	"os"
-	"os/signal"
 	"syscall"
+	"time"
 )
 
 type gauge float64
@@ -129,14 +129,17 @@ func main() {
 
 	for {
 		select {
-		case dat_signal:= <-SigChan:
+		case dat_signal := <-SigChan:
 			switch dat_signal {
-				// Агент должен штатно завершаться по сигналам: syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT.
-				// eh?
-                        	case syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
-                                	//fmt.Printf("\nSignal %v triggered.\n", dat_signal)
-					os.Exit(0)
-                        	}
+			// Агент должен штатно завершаться по сигналам: syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT.
+			// eh?
+			case syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
+				//fmt.Printf("\nSignal %v triggered.\n", dat_signal)
+				os.Exit(0)
+			default:
+				fmt.Printf("\nSignal %v triggered.\n", dat_signal)
+				os.Exit(1)
+			}
 		//case t := <-TickerPoll.C:
 		case <-TickerPoll.C:
 			// fmt.Println("polling ticker: ", t)
