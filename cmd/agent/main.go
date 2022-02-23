@@ -129,7 +129,7 @@ func main() {
 				request.Header.Set("Content-Type", "text/plain")
 				resp, err := client.Do(request)
 				if err != nil { log.Fatal(err) }
-				defer resp.Body.Close()
+				resp.Body.Close()
 				//fmt.Printf("\tmetric: %v; status_code: %v\n", varName, resp.StatusCode)
 			}
 		}
