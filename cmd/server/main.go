@@ -66,7 +66,7 @@ func service() http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
-	r.Use(middleware.Logger)
+	//r.Use(middleware.Logger)
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("<html><body>"))
@@ -99,9 +99,7 @@ func service() http.Handler {
 			default:
 				http.Error(w, "Not Implemented", http.StatusNotImplemented)
 			}
-		} else {
-			http.Error(w, "Not Implemented", http.StatusNotImplemented)
-		}
+		} else { http.Error(w, "Not Found", http.StatusNotFound) }
 	})
 
 	r.Post("/{action}/{type}/{name}/{value}", func(w http.ResponseWriter, r *http.Request) {
@@ -128,9 +126,7 @@ func service() http.Handler {
 			default:
 				http.Error(w, "Not Implemented", http.StatusNotImplemented)
 			}
-		} else {
-			http.Error(w, "Not Implemented", http.StatusNotImplemented)
-		}
+		} else { http.Error(w, "Not Found", http.StatusNotFound) }
 	})
 
 	//fmt.Printf("name: %v;\tr_val: %v;\tc_val: %v\n", metricName, rawMetricValue, metricValue)
