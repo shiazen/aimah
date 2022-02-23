@@ -69,14 +69,14 @@ func service() http.Handler {
 	//r.Use(middleware.Logger)
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(fmt.Sprintf("<html><body>")))
+		w.Write([]byte("<html><body>"))
 		for k, v := range datData.gaugeMetrics {
 			w.Write([]byte(fmt.Sprintf("<p>%v %v</p>", k, v)))
 		}
 		for k, v := range datData.counterMetrics {
 			w.Write([]byte(fmt.Sprintf("<p>%v %v</p>", k, v)))
 		}
-		w.Write([]byte(fmt.Sprintf("</body></html>")))
+		w.Write([]byte("</body></html>"))
 	})
 
 	r.Get("/value/gauge/{name}", func(w http.ResponseWriter, r *http.Request) {
@@ -120,6 +120,7 @@ func service() http.Handler {
 		//fmt.Printf("name: %v;\tr_val: %v;\tc_val: %v\n", metricName, rawMetricValue, metricValue)
 		//fmt.Printf("data stored: %v\n", datData.gaugeMetrics[metricName] )
 	})
+	//r.Get("/*", func(w http.ResponseWriter, r *http.Request) { http.Error(w, "Not Found", http.StatusNotImplemented) })
 
 	return r
 }
