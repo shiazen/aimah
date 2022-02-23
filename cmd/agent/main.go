@@ -125,14 +125,10 @@ func main() {
 				query := fmt.Sprintf("%v:%v/update/%v/%v/%v", serverAddress, serverPort, varType, varName, varValue)
 				// Метрики нужно отправлять по протоколу HTTP, методом POST:
 				request, err := http.NewRequest(http.MethodPost, query, nil) //bytes.NewBuffer(datpayload))
-				if err != nil {
-					log.Fatal(err)
-				}
+				if err != nil { log.Fatal(err) }
 				request.Header.Set("Content-Type", "text/plain")
 				resp, err := client.Do(request)
-				if err != nil {
-					log.Fatal(err)
-				}
+				if err != nil { log.Fatal(err) }
 				defer resp.Body.Close()
 				//fmt.Printf("\tmetric: %v; status_code: %v\n", varName, resp.StatusCode)
 			}

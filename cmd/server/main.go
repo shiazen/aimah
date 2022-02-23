@@ -66,9 +66,10 @@ func service() http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
-	//r.Use(middleware.Logger)
+	r.Use(middleware.Logger)
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("content-type", "text/html")
 		w.Write([]byte("<html><body>"))
 		for k, v := range datData.gaugeMetrics {
 			w.Write([]byte(fmt.Sprintf("<p>%v %v</p>", k, v)))
@@ -112,14 +113,14 @@ func service() http.Handler {
 			case "gauge":
 				metricValue, err := strconv.ParseFloat(rawMetricValue, 64)
 				if err == nil {
-					datData.gaugeMetrics[metricName] += Gauge(metricValue)
+					datData.gaugeMetrics[metricName] = Gauge(metricValue)
 				} else {
 					http.Error(w, "Bad request", http.StatusBadRequest)
 				}
 			case "counter":
 				metricValue, err := strconv.ParseInt(rawMetricValue, 10, 64)
 				if err == nil {
-					datData.counterMetrics[metricName] = Counter(metricValue)
+					datData.counterMetrics[metricName] += Counter(metricValue)
 				} else {
 					http.Error(w, "Bad request", http.StatusBadRequest)
 				}
