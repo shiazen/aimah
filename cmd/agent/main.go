@@ -14,42 +14,9 @@ import (
 	"time"
 )
 
-type gauge float64
-type counter int64
+// ./types.go
 
-type Payload struct {
-	Alloc,
-	BuckHashSys,
-	Frees,
-	GCCPUFraction,
-	GCSys,
-	HeapAlloc,
-	HeapIdle,
-	HeapInuse,
-	HeapObjects,
-	HeapReleased,
-	HeapSys,
-	LastGC,
-	Lookups,
-	MCacheInuse,
-	MCacheSys,
-	MSpanInuse,
-	MSpanSys,
-	Mallocs,
-	NextGC,
-	NumForcedGC,
-	NumGC,
-	OtherSys,
-	PauseTotalNs,
-	StackInuse,
-	StackSys,
-	Sys,
-	RandomValue gauge // — обновляемое рандомное значение.
-
-	PollCount counter // — счётчик, увеличивающийся на 1 при каждом обновлении метрики из пакета runtime (на каждый pollInterval — см. ниже).
-}
-
-func poller(dat_random float64, dat_counter *int64) Payload {
+func Poller(dat_random float64, dat_counter *int64) Payload {
 
 	var pld Payload
 
@@ -134,7 +101,7 @@ func main() {
 			// Агент должен штатно завершаться по сигналам: syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT.
 			// eh?
 			case syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
-				//fmt.Printf("\nSignal %v triggered.\n", dat_signal)
+				fmt.Printf("\nSignal %v triggered.\n", dat_signal)
 				os.Exit(0)
 			default:
 				fmt.Printf("\nSignal %v triggered.\n", dat_signal)
@@ -143,19 +110,17 @@ func main() {
 		//case t := <-TickerPoll.C:
 		case <-TickerPoll.C:
 			// fmt.Println("polling ticker: ", t)
-			DatPayload = poller(rand.Float64(), &cnt)
+			DatPayload = Poller(rand.Float64(), &cnt)
 		//case t := <-TickerSend.C:
 		case <-TickerSend.C:
 			//fmt.Println("sending ticker: ", t)
-
 			e := reflect.ValueOf(&DatPayload).Elem()
-
 			// here be sending loop
 			for i := 0; i < e.NumField(); i++ {
-				varName := e.Type().Field(i).Name              // NumGC
-				varValue := e.Field(i).Interface()             // 0
-				varType := e.Type().Field(i).Type.String()     // main.gauge
-				varType = strings.TrimPrefix(varType, "main.") // gauge
+				varName := e.Type().Field(i).Name              // eg. "NumGC"
+				varValue := e.Field(i).Interface()             // "0"
+				varType := e.Type().Field(i).Type.String()     // "main.gauge"
+				varType = strings.TrimPrefix(varType, "main.") // "gauge"
 				// в формате: http://<АДРЕС_СЕРВЕРА>/update/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>/<ЗНАЧЕНИЕ_МЕТРИКИ>
 				query := fmt.Sprintf("%v:%v/update/%v/%v/%v", server_address, server_port, varType, varName, varValue)
 				// Метрики нужно отправлять по протоколу HTTP, методом POST:
