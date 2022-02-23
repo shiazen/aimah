@@ -67,8 +67,8 @@ var cnt int64 = 0
 func main() {
 
 	// по умолчанию на адрес: 127.0.0.1, порт: 8080
-	server_address := "http://127.0.0.1"
-	server_port := 8080
+	serverAddress := "http://127.0.0.1"
+	serverPort := 8080
 
 	// randomness happens
 	rand.Seed(time.Now().UnixNano())
@@ -122,7 +122,7 @@ func main() {
 				varType := e.Type().Field(i).Type.String()     // "main.gauge"
 				varType = strings.TrimPrefix(varType, "main.") // "gauge"
 				// в формате: http://<АДРЕС_СЕРВЕРА>/update/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>/<ЗНАЧЕНИЕ_МЕТРИКИ>
-				query := fmt.Sprintf("%v:%v/update/%v/%v/%v", server_address, server_port, varType, varName, varValue)
+				query := fmt.Sprintf("%v:%v/update/%v/%v/%v", serverAddress, serverPort, varType, varName, varValue)
 				// Метрики нужно отправлять по протоколу HTTP, методом POST:
 				request, err := http.NewRequest(http.MethodPost, query, nil) //bytes.NewBuffer(datpayload))
 				if err != nil {
