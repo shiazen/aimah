@@ -16,7 +16,7 @@ import (
 
 // ./types.go
 
-func Poller(dat_random float64, dat_counter *int64) Payload {
+func Poller(datRandom float64, datCounter *int64) Payload {
 
 	var pld Payload
 
@@ -50,9 +50,9 @@ func Poller(dat_random float64, dat_counter *int64) Payload {
 	pld.StackSys = gauge(ms.StackSys)
 	pld.Sys = gauge(ms.Sys)
 
-	*dat_counter++
-	pld.PollCount = counter(*dat_counter)
-	pld.RandomValue = gauge(dat_random)
+	*datCounter++
+	pld.PollCount = counter(*datCounter)
+	pld.RandomValue = gauge(datRandom)
 
 	return pld
 }
@@ -96,15 +96,15 @@ func main() {
 
 	for {
 		select {
-		case dat_signal := <-SigChan:
-			switch dat_signal {
+		case datSignal := <-SigChan:
+			switch datSignal {
 			// Агент должен штатно завершаться по сигналам: syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT.
 			// eh?
 			case syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
-				fmt.Printf("\nSignal %v triggered.\n", dat_signal)
+				fmt.Printf("\nSignal %v triggered.\n", datSignal)
 				os.Exit(0)
 			default:
-				fmt.Printf("\nSignal %v triggered.\n", dat_signal)
+				fmt.Printf("\nSignal %v triggered.\n", datSignal)
 				os.Exit(1)
 			}
 		//case t := <-TickerPoll.C:
@@ -124,7 +124,7 @@ func main() {
 				// в формате: http://<АДРЕС_СЕРВЕРА>/update/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>/<ЗНАЧЕНИЕ_МЕТРИКИ>
 				query := fmt.Sprintf("%v:%v/update/%v/%v/%v", server_address, server_port, varType, varName, varValue)
 				// Метрики нужно отправлять по протоколу HTTP, методом POST:
-				request, err := http.NewRequest(http.MethodPost, query, nil) //bytes.NewBuffer(dat_payload))
+				request, err := http.NewRequest(http.MethodPost, query, nil) //bytes.NewBuffer(datpayload))
 				if err != nil {
 					log.Fatal(err)
 				}
