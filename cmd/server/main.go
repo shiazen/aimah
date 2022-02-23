@@ -103,7 +103,7 @@ func service() http.Handler {
 		metricValue, err := strconv.ParseInt(rawMetricValue, 10, 64)
 		if err == nil {
 			datData.counterMetrics[metricName] = Counter(metricValue)
-		} else { http.Error(w, "Wrong data", http.StatusUnprocessableEntity ) }
+		} else { http.Error(w, "Bad request", http.StatusBadRequest) }
 
 		//fmt.Printf("name: %v;\tr_val: %v;\tc_val: %v\n", metricName, rawMetricValue, metricValue)
 		//fmt.Printf("data stored: %v\n", datData.counterMetrics[metricName] )
@@ -115,7 +115,7 @@ func service() http.Handler {
 		metricValue, err := strconv.ParseFloat(rawMetricValue, 64)
 		if err == nil {
 			datData.gaugeMetrics[metricName] += Gauge(metricValue)
-		} else { http.Error(w, "Wrong data", http.StatusUnprocessableEntity ) }
+		} else { http.Error(w, "Bad request", http.StatusBadRequest) }
 
 		//fmt.Printf("name: %v;\tr_val: %v;\tc_val: %v\n", metricName, rawMetricValue, metricValue)
 		//fmt.Printf("data stored: %v\n", datData.gaugeMetrics[metricName] )
