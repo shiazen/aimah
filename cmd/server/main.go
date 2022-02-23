@@ -23,12 +23,12 @@ type InMemoryStore struct {
 	counterMetrics map[string]Counter
 }
 
-var dat_data InMemoryStore
+var datData InMemoryStore
 
 func main() {
 
-	dat_data.counterMetrics = make(map[string]Counter)
-	dat_data.gaugeMetrics = make(map[string]Gauge)
+	datData.counterMetrics = make(map[string]Counter)
+	datData.gaugeMetrics = make(map[string]Gauge)
 
 	server := &http.Server{Addr: "127.0.0.1:8080", Handler: service()}
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
@@ -70,10 +70,10 @@ func service() http.Handler {
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("<html><body>")))
-		for k, v := range dat_data.gaugeMetrics {
+		for k, v := range datData.gaugeMetrics {
 			w.Write([]byte(fmt.Sprintf("<p>%v %v</p>", k, v)))
 		}
-		for k, v := range dat_data.counterMetrics {
+		for k, v := range datData.counterMetrics {
 			w.Write([]byte(fmt.Sprintf("<p>%v %v</p>", k, v)))
 		}
 		w.Write([]byte(fmt.Sprintf("</body></html>")))
@@ -81,16 +81,16 @@ func service() http.Handler {
 
 	r.Get("/value/gauge/{name}", func(w http.ResponseWriter, r *http.Request) {
 		metricName := chi.URLParam(r, "name")
-		if _, ok := dat_data.gaugeMetrics[metricName]; ok {
-			w.Write([]byte(fmt.Sprintf("%v\n", dat_data.gaugeMetrics[metricName])))
+		if _, ok := datData.gaugeMetrics[metricName]; ok {
+			w.Write([]byte(fmt.Sprintf("%v\n", datData.gaugeMetrics[metricName])))
 		} else {
 			http.Error(w, "Not Found", http.StatusNotFound)
 		}
 	})
 	r.Get("/value/counter/{name}", func(w http.ResponseWriter, r *http.Request) {
 		metricName := chi.URLParam(r, "name")
-		if _, ok := dat_data.counterMetrics[metricName]; ok {
-			w.Write([]byte(fmt.Sprintf("%v\n", dat_data.counterMetrics[metricName])))
+		if _, ok := datData.counterMetrics[metricName]; ok {
+			w.Write([]byte(fmt.Sprintf("%v\n", datData.counterMetrics[metricName])))
 		} else {
 			http.Error(w, "Not Found", http.StatusNotFound)
 		}
@@ -101,20 +101,20 @@ func service() http.Handler {
 		rawMetricValue := chi.URLParam(r, "value")
 		metricValue, _ := strconv.ParseInt(rawMetricValue, 10, 64)
 
-		dat_data.counterMetrics[metricName] = Counter(metricValue)
+		datData.counterMetrics[metricName] = Counter(metricValue)
 
 		//fmt.Printf("name: %v;\tr_val: %v;\tc_val: %v\n", metricName, rawMetricValue, metricValue)
-		//fmt.Printf("data stored: %v\n", dat_data.counterMetrics[metricName] )
+		//fmt.Printf("data stored: %v\n", datData.counterMetrics[metricName] )
 	})
 	r.Post("/update/gauge/{name}/{value}", func(w http.ResponseWriter, r *http.Request) {
 		metricName := chi.URLParam(r, "name")
 		rawMetricValue := chi.URLParam(r, "value")
 		metricValue, _ := strconv.ParseFloat(rawMetricValue, 64)
 
-		dat_data.gaugeMetrics[metricName] += Gauge(metricValue)
+		datData.gaugeMetrics[metricName] += Gauge(metricValue)
 
 		//fmt.Printf("name: %v;\tr_val: %v;\tc_val: %v\n", metricName, rawMetricValue, metricValue)
-		//fmt.Printf("data stored: %v\n", dat_data.gaugeMetrics[metricName] )
+		//fmt.Printf("data stored: %v\n", datData.gaugeMetrics[metricName] )
 	})
 
 	return r
