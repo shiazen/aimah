@@ -66,7 +66,7 @@ func service() http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
-	r.Use(middleware.Logger)
+	//r.Use(middleware.Logger)
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(fmt.Sprintf("<html><body>")))
@@ -99,9 +99,11 @@ func service() http.Handler {
 	r.Post("/update/counter/{name}/{value}", func(w http.ResponseWriter, r *http.Request) {
 		metricName := chi.URLParam(r, "name")
 		rawMetricValue := chi.URLParam(r, "value")
-		metricValue, _ := strconv.ParseInt(rawMetricValue, 10, 64)
 
-		datData.counterMetrics[metricName] = Counter(metricValue)
+		metricValue, err := strconv.ParseInt(rawMetricValue, 10, 64)
+		if err == nil {
+			datData.counterMetrics[metricName] = Counter(metricValue)
+		} else { http.Error(w, "Wrong data", http.StatusUnprocessableEntity ) }
 
 		//fmt.Printf("name: %v;\tr_val: %v;\tc_val: %v\n", metricName, rawMetricValue, metricValue)
 		//fmt.Printf("data stored: %v\n", datData.counterMetrics[metricName] )
@@ -109,9 +111,11 @@ func service() http.Handler {
 	r.Post("/update/gauge/{name}/{value}", func(w http.ResponseWriter, r *http.Request) {
 		metricName := chi.URLParam(r, "name")
 		rawMetricValue := chi.URLParam(r, "value")
-		metricValue, _ := strconv.ParseFloat(rawMetricValue, 64)
 
-		datData.gaugeMetrics[metricName] += Gauge(metricValue)
+		metricValue, err := strconv.ParseFloat(rawMetricValue, 64)
+		if err == nil {
+			datData.gaugeMetrics[metricName] += Gauge(metricValue)
+		} else { http.Error(w, "Wrong data", http.StatusUnprocessableEntity ) }
 
 		//fmt.Printf("name: %v;\tr_val: %v;\tc_val: %v\n", metricName, rawMetricValue, metricValue)
 		//fmt.Printf("data stored: %v\n", datData.gaugeMetrics[metricName] )
