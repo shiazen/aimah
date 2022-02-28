@@ -70,70 +70,76 @@ func service() http.Handler {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
 
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("content-type", "text/html")
-		w.Write([]byte("<html><body>"))
-		for k, v := range datData.gaugeMetrics {
-			w.Write([]byte(fmt.Sprintf("<p>%v %v</p>", k, v)))
-		}
-		for k, v := range datData.counterMetrics {
-			w.Write([]byte(fmt.Sprintf("<p>%v %v</p>", k, v)))
-		}
-		w.Write([]byte("</body></html>"))
-	})
-
-	r.Get("/{action}/{type}/{name}", func(w http.ResponseWriter, r *http.Request) {
-		if metricAction := chi.URLParam(r, "action"); metricAction == "value" {
-			metricType := chi.URLParam(r, "type")
-			metricName := chi.URLParam(r, "name")
-			switch metricType {
-			case "gauge":
-				if _, ok := datData.gaugeMetrics[metricName]; ok {
-					w.Write([]byte(fmt.Sprintf("%v\n", datData.gaugeMetrics[metricName])))
-				} else {
-					http.Error(w, "Not Found", http.StatusNotFound)
-				}
-			case "counter":
-				if _, ok := datData.counterMetrics[metricName]; ok {
-					w.Write([]byte(fmt.Sprintf("%v\n", datData.counterMetrics[metricName])))
-				} else {
-					http.Error(w, "Not Found", http.StatusNotFound)
-				}
-			default:
-				http.Error(w, "Not Implemented", http.StatusNotImplemented)
-			}
-		} else { http.Error(w, "Not Found", http.StatusNotFound) }
-	})
-
-	r.Post("/{action}/{type}/{name}/{value}", func(w http.ResponseWriter, r *http.Request) {
-
-		if metricAction := chi.URLParam(r, "action"); metricAction == "update" {
-			metricType := chi.URLParam(r, "type")
-			metricName := chi.URLParam(r, "name")
-			rawMetricValue := chi.URLParam(r, "value")
-			switch metricType {
-			case "gauge":
-				metricValue, err := strconv.ParseFloat(rawMetricValue, 64)
-				if err == nil {
-					datData.gaugeMetrics[metricName] = Gauge(metricValue)
-				} else {
-					http.Error(w, "Bad request", http.StatusBadRequest)
-				}
-			case "counter":
-				metricValue, err := strconv.ParseInt(rawMetricValue, 10, 64)
-				if err == nil {
-					datData.counterMetrics[metricName] += Counter(metricValue)
-				} else {
-					http.Error(w, "Bad request", http.StatusBadRequest)
-				}
-			default:
-				http.Error(w, "Not Implemented", http.StatusNotImplemented)
-			}
-		} else { http.Error(w, "Not Found", http.StatusNotFound) }
-	})
-
-	//fmt.Printf("name: %v;\tr_val: %v;\tc_val: %v\n", metricName, rawMetricValue, metricValue)
-	//fmt.Printf("data stored: %v\n", datData.gaugeMetrics[metricName] )
+	r.Get("/", MetricList)
+	r.Get("/{action}/{type}/{name}", MetricGet)
+	r.Post("/{action}/{type}/{name}/{value}", MetricPost)
 
 	return r
+}
+
+func MetricList(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("content-type", "text/html")
+	w.Write([]byte("<html><body>"))
+	for k, v := range datData.gaugeMetrics {
+		w.Write([]byte(fmt.Sprintf("<p>%v %v</p>", k, v)))
+	}
+	for k, v := range datData.counterMetrics {
+		w.Write([]byte(fmt.Sprintf("<p>%v %v</p>", k, v)))
+	}
+	w.Write([]byte("</body></html>"))
+}
+
+func MetricGet(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("content-type", "text/plain")
+	if metricAction := chi.URLParam(r, "action"); metricAction == "value" {
+		metricType := chi.URLParam(r, "type")
+		metricName := chi.URLParam(r, "name")
+		switch metricType {
+		case "gauge":
+			if _, ok := datData.gaugeMetrics[metricName]; ok {
+				w.Write([]byte(fmt.Sprintf("%v", datData.gaugeMetrics[metricName])))
+			} else {
+				http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			}
+		case "counter":
+			if _, ok := datData.counterMetrics[metricName]; ok {
+				w.Write([]byte(fmt.Sprintf("%v\n", datData.counterMetrics[metricName])))
+			} else {
+				http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			}
+		default:
+			http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
+		}
+	} else {
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+	}
+}
+
+func MetricPost(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("content-type", "text/plain")
+	if metricAction := chi.URLParam(r, "action"); metricAction == "update" {
+		metricType := chi.URLParam(r, "type")
+		metricName := chi.URLParam(r, "name")
+		rawMetricValue := chi.URLParam(r, "value")
+		switch metricType {
+		case "gauge":
+			metricValue, err := strconv.ParseFloat(rawMetricValue, 64)
+			if err == nil {
+				datData.gaugeMetrics[metricName] = Gauge(metricValue)
+			} else {
+				http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			}
+		case "counter":
+			metricValue, err := strconv.ParseInt(rawMetricValue, 10, 64)
+			if err == nil {
+				datData.counterMetrics[metricName] += Counter(metricValue)
+			} else {
+				http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			}
+		default:
+			http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
+		}
+	} else {
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+	}
 }
