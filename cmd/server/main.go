@@ -2,25 +2,25 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
-	"io"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
 	"time"
-	"encoding/json"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
 type Metrics struct {
-	ID	string	`json:"id"`	// имя метрики
-	MType string	`json:"type"`	// параметр, принимающий значение gauge или counter
-	Delta *int64	`json:"delta,omitempty"` // значение метрики в случае передачи counter
+	ID    string   `json:"id"`              // имя метрики
+	MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
+	Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
 	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
 }
 
@@ -28,7 +28,7 @@ type Metrics struct {
 //type Counter int64
 
 type InMemoryStore struct {
-	gaugeMetrics	map[string]float64
+	gaugeMetrics   map[string]float64
 	counterMetrics map[string]int64
 }
 
@@ -127,8 +127,6 @@ func MetricGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func MetricPost(w http.ResponseWriter, r *http.Request) {
-	//if r.Header.Get("Content-type") == "text/plain" { fmt.Printf("text/plain") }
-	//if r.Header.Get("Content-type") == "text/plain" { fmt.Println("OKAY") }
 	metricType := chi.URLParam(r, "type")
 	metricName := chi.URLParam(r, "name")
 	rawMetricValue := chi.URLParam(r, "value")
@@ -155,59 +153,49 @@ func MetricPost(w http.ResponseWriter, r *http.Request) {
 
 func PostUpdateJson(w http.ResponseWriter, r *http.Request) {
 
-	MetricsJson := Metrics{}
-	//err := json.NewDecoder(r.Body).Decode(&MetricsJson)
-	body, err := io.ReadAll(r.Body)
-	if err != nil { log.Fatal(err) }
-	err = json.Unmarshal(body, &MetricsJson)
-//	fmt.Println(MetricsJson.ID, MetricsJson.MType)
-	if (err != nil) {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	//if err := json.Unmarshal(r.Body, &MetricJson); err != nil { panic(err) }
+	MetricsJson := DeJsonify(&r.Body)
+
 	switch MetricsJson.MType {
-		case "gauge":
-			if MetricsJson.Value != nil {
-				datData.gaugeMetrics[MetricsJson.ID] = *MetricsJson.Value
-			}
-		case "counter":
-			if MetricsJson.Delta != nil {
-				datData.counterMetrics[MetricsJson.ID] += *MetricsJson.Delta
-			}
-		default:
-			http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
+	case "gauge":
+		if MetricsJson.Value != nil {
+			datData.gaugeMetrics[MetricsJson.ID] = *MetricsJson.Value
+		}
+	case "counter":
+		if MetricsJson.Delta != nil {
+			datData.counterMetrics[MetricsJson.ID] += *MetricsJson.Delta
+		}
+	default:
+		http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
 	}
 }
 
 func PostValueJson(w http.ResponseWriter, r *http.Request) {
 
-	MetricsJson := Metrics{}
-	body, err := io.ReadAll(r.Body)
-	if err != nil { log.Fatal(err) }
-	err = json.Unmarshal(body, &MetricsJson)
-	if (err != nil) {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+	MetricsJson := DeJsonify(&r.Body)
+
 	switch MetricsJson.MType {
-		case "gauge":
-			if _, ok := datData.gaugeMetrics[MetricsJson.ID]; ok {
-				w.Write([]byte(fmt.Sprintf("%v", datData.gaugeMetrics[MetricsJson.ID])))
-			}
-		case "counter":
-			if _, ok := datData.counterMetrics[MetricsJson.ID]; ok {
-				w.Write([]byte(fmt.Sprintf("%v", datData.counterMetrics[MetricsJson.ID])))
-			}
-		default:
-			http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
+	case "gauge":
+		if _, ok := datData.gaugeMetrics[MetricsJson.ID]; ok {
+			w.Write([]byte(fmt.Sprintf("%v", datData.gaugeMetrics[MetricsJson.ID])))
+		}
+	case "counter":
+		if _, ok := datData.counterMetrics[MetricsJson.ID]; ok {
+			w.Write([]byte(fmt.Sprintf("%v", datData.counterMetrics[MetricsJson.ID])))
+		}
+	default:
+		http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
 	}
 }
 
-func DeJsonify (body *io.Reader) Metrics {
+func DeJsonify(body *io.ReadCloser) Metrics {
 	theMetrics := Metrics{}
-	bytestreamBody, err := io.ReadAll(*body)
-	if err != nil { log.Fatal(err) }
-	err = json.Unmarshal(bytestreamBody, &theMetrics)
+	byteStreamBody, err := io.ReadAll(*body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = json.Unmarshal(byteStreamBody, &theMetrics)
+	if err != nil {
+		log.Fatal(err)
+	}
 	return theMetrics
 }
