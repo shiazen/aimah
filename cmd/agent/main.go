@@ -2,83 +2,37 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"math/rand"
+	"runtime"
 	"net/http"
+	"math/rand"
+	"time"
+	"reflect"
+	"log"
 	"os"
 	"os/signal"
-	"reflect"
-	"runtime"
-	"strings"
 	"syscall"
-	"time"
 )
 
-// ./types.go
+var memStats = [26]string{ "Alloc", "BuckHashSys", "Frees",
+		"GCCPUFraction", "GCSys", "HeapAlloc", "HeapIdle",
+		"HeapInuse", "HeapObjects", "HeapReleased", "HeapSys",
+		"LastGC", "Lookups", "MCacheInuse", "MCacheSys",
+		"MSpanInuse", "MSpanSys", "Mallocs", "NextGC",
+		"NumForcedGC", "NumGC", "OtherSys", "PauseTotalNs",
+		"StackInuse", "StackSys", "Sys"}
 
-func Poller(datRandom float64, datCounter *int64) Payload {
-
-	var pld Payload
-
-	var ms runtime.MemStats
-	runtime.ReadMemStats(&ms)
-
-	pld.Alloc = gauge(ms.Alloc)
-	pld.BuckHashSys = gauge(ms.BuckHashSys)
-	pld.Frees = gauge(ms.Frees)
-	pld.GCCPUFraction = gauge(ms.GCCPUFraction)
-	pld.GCSys = gauge(ms.GCSys)
-	pld.HeapAlloc = gauge(ms.HeapAlloc)
-	pld.HeapIdle = gauge(ms.HeapIdle)
-	pld.HeapInuse = gauge(ms.HeapInuse)
-	pld.HeapObjects = gauge(ms.HeapObjects)
-	pld.HeapReleased = gauge(ms.HeapReleased)
-	pld.HeapSys = gauge(ms.HeapSys)
-	pld.LastGC = gauge(ms.LastGC)
-	pld.Lookups = gauge(ms.Lookups)
-	pld.MCacheInuse = gauge(ms.MCacheInuse)
-	pld.MCacheSys = gauge(ms.MCacheSys)
-	pld.MSpanInuse = gauge(ms.MSpanInuse)
-	pld.MSpanSys = gauge(ms.MSpanSys)
-	pld.Mallocs = gauge(ms.Mallocs)
-	pld.NextGC = gauge(ms.NextGC)
-	pld.NumForcedGC = gauge(ms.NumForcedGC)
-	pld.NumGC = gauge(ms.NumGC)
-	pld.OtherSys = gauge(ms.OtherSys)
-	pld.PauseTotalNs = gauge(ms.PauseTotalNs)
-	pld.StackInuse = gauge(ms.StackInuse)
-	pld.StackSys = gauge(ms.StackSys)
-	pld.Sys = gauge(ms.Sys)
-
-	*datCounter++
-	pld.PollCount = counter(*datCounter)
-	pld.RandomValue = gauge(datRandom)
-
-	return pld
-}
-
-// payload should be shared between
-// polling and sending ticker loops
-var DatPayload Payload
-
-// poll counter
-var cnt int64 = 0
+var ms runtime.MemStats
+var Counter int64
+var RandomValue float64
 
 func main() {
-
-	// по умолчанию на адрес: 127.0.0.1, порт: 8080
-	serverAddress := "http://127.0.0.1"
-	serverPort := 8080
-
-	// randomness happens
 	rand.Seed(time.Now().UnixNano())
-
 	client := &http.Client{}
 
-	// По умолчанию приложение должно обновлять метрики из пакета runtime с заданной частотой:
 	var pollInterval = 2
-	// По умолчанию приложение должно отправлять метрики на сервер с заданной частотой:
 	var reportInterval = 10
+	serverAddress := "http://127.0.0.1"
+	serverPort := 8080
 
 	TickerPoll := time.NewTicker(time.Duration(pollInterval) * time.Second)
 	defer TickerPoll.Stop()
@@ -86,52 +40,50 @@ func main() {
 	defer TickerSend.Stop()
 
 	SigChan := make(chan os.Signal, 1)
-	signal.Notify(SigChan,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT)
+	signal.Notify(SigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
-	go func() {
-	}()
+	go func() { }()
 
 	for {
 		select {
-		case datSignal := <-SigChan:
+			case datSignal := <-SigChan:
 			switch datSignal {
-			// Агент должен штатно завершаться по сигналам: syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT.
-			// eh?
-			case syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
-				fmt.Printf("\nSignal %v triggered.\n", datSignal)
-				os.Exit(0)
-			default:
-				fmt.Printf("\nSignal %v triggered.\n", datSignal)
-				os.Exit(1)
+				case syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
+					fmt.Printf("\nSignal %v triggered.\n", datSignal)
+					os.Exit(0)
+				default:
+					fmt.Printf("\nSignal %v triggered.\n", datSignal)
+					os.Exit(1)
 			}
-		//case t := <-TickerPoll.C:
-		case <-TickerPoll.C:
-			// fmt.Println("polling ticker: ", t)
-			DatPayload = Poller(rand.Float64(), &cnt)
-		//case t := <-TickerSend.C:
-		case <-TickerSend.C:
-			//fmt.Println("sending ticker: ", t)
-			e := reflect.ValueOf(&DatPayload).Elem()
-			// here be sending loop
-			for i := 0; i < e.NumField(); i++ {
-				varName := e.Type().Field(i).Name              // eg. "NumGC"
-				varValue := e.Field(i).Interface()             // "0"
-				varType := e.Type().Field(i).Type.String()     // "main.gauge"
-				varType = strings.TrimPrefix(varType, "main.") // "gauge"
-				// в формате: http://<АДРЕС_СЕРВЕРА>/update/<ТИП_МЕТРИКИ>/<ИМЯ_МЕТРИКИ>/<ЗНАЧЕНИЕ_МЕТРИКИ>
-				query := fmt.Sprintf("%v:%v/update/%v/%v/%v", serverAddress, serverPort, varType, varName, varValue)
-				// Метрики нужно отправлять по протоколу HTTP, методом POST:
-				request, err := http.NewRequest(http.MethodPost, query, nil) //bytes.NewBuffer(datpayload))
-				if err != nil { log.Fatal(err) }
-				request.Header.Set("Content-Type", "text/plain")
-				resp, err := client.Do(request)
-				if err != nil { log.Fatal(err) }
-				resp.Body.Close()
-				//fmt.Printf("\tmetric: %v; status_code: %v\n", varName, resp.StatusCode)
-			}
+			case <-TickerPoll.C:
+				runtime.ReadMemStats(&ms)
+				RandomValue = rand.Float64()
+				Counter++
+			case <-TickerSend.C:
+				//fmt.Println(Counter, RandomValue)
+				for i, varName := range memStats {
+					varValue := getField(&ms, memStats[i])
+					varType := "gauge"
+					query := fmt.Sprintf("%v:%v/update/%v/%v/%v", serverAddress, serverPort, varType, varName, varValue)
+					sendStuff(client, query)
+				}
+				sendStuff(client, fmt.Sprintf("%v:%v/update/%v/%v/%v", serverAddress, serverPort, "gauge", "RandomValue", RandomValue))
+				sendStuff(client, fmt.Sprintf("%v:%v/update/%v/%v/%v", serverAddress, serverPort, "counter", "PollCount", Counter))
 		}
 	}
+}
+
+func getField(v *runtime.MemStats, field string) reflect.Value {
+	r := reflect.ValueOf(v)
+	f := reflect.Indirect(r).FieldByName(field)
+	return f
+}
+
+func sendStuff (c *http.Client, q string) {
+	request, err := http.NewRequest(http.MethodPost, q, nil)
+	if err != nil { log.Fatal(err) }
+	request.Header.Set("Content-Type", "text/plain")
+	resp, err := c.Do(request)
+	if err != nil { log.Fatal(err) }
+	resp.Body.Close()
 }
