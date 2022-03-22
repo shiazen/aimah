@@ -170,6 +170,7 @@ func PostUpdateJson(w http.ResponseWriter, r *http.Request) {
 }
 
 func PostValueJson(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 
 	MetricsJson := DeJsonify(&r.Body)
 
