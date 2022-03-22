@@ -82,8 +82,8 @@ func service() http.Handler {
 	r.Get("/", MetricList)
 	r.Get("/{action}/{type}/{name}", MetricGet)
 	r.Post("/update/{type}/{name}/{value}", MetricPost)
-	r.Post("/update/", PostUpdateJson)
-	r.Post("/value/", PostValueJson)
+	r.Post("/update/", PostUpdateJSON)
+	r.Post("/value/", PostValueJSON)
 
 	return r
 }
@@ -152,44 +152,44 @@ func MetricPost(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func PostUpdateJson(w http.ResponseWriter, r *http.Request) {
+func PostUpdateJSON(w http.ResponseWriter, r *http.Request) {
 
-	MetricsJson := DeJsonify(&r.Body)
+	MetricsJSON := DeJSONify(&r.Body)
 
-	switch MetricsJson.MType {
+	switch MetricsJSON.MType {
 	case "gauge":
-		if MetricsJson.Value != nil {
-			datData.gaugeMetrics[MetricsJson.ID] = *MetricsJson.Value
+		if MetricsJSON.Value != nil {
+			datData.gaugeMetrics[MetricsJSON.ID] = *MetricsJSON.Value
 		}
 	case "counter":
-		if MetricsJson.Delta != nil {
-			datData.counterMetrics[MetricsJson.ID] += *MetricsJson.Delta
+		if MetricsJSON.Delta != nil {
+			datData.counterMetrics[MetricsJSON.ID] += *MetricsJSON.Delta
 		}
 	default:
 		http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
 	}
 }
 
-func PostValueJson(w http.ResponseWriter, r *http.Request) {
+func PostValueJSON(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	MetricsJson := DeJsonify(&r.Body)
+	MetricsJSON := DeJSONify(&r.Body)
 
-	switch MetricsJson.MType {
+	switch MetricsJSON.MType {
 	case "gauge":
-		if _, ok := datData.gaugeMetrics[MetricsJson.ID]; ok {
-			w.Write([]byte(fmt.Sprintf("%v", datData.gaugeMetrics[MetricsJson.ID])))
+		if _, ok := datData.gaugeMetrics[MetricsJSON.ID]; ok {
+			w.Write([]byte(fmt.Sprintf("%v", datData.gaugeMetrics[MetricsJSON.ID])))
 		}
 	case "counter":
-		if _, ok := datData.counterMetrics[MetricsJson.ID]; ok {
-			w.Write([]byte(fmt.Sprintf("%v", datData.counterMetrics[MetricsJson.ID])))
+		if _, ok := datData.counterMetrics[MetricsJSON.ID]; ok {
+			w.Write([]byte(fmt.Sprintf("%v", datData.counterMetrics[MetricsJSON.ID])))
 		}
 	default:
 		http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
 	}
 }
 
-func DeJsonify(body *io.ReadCloser) Metrics {
+func DeJSONify(body *io.ReadCloser) Metrics {
 	theMetrics := Metrics{}
 	byteStreamBody, err := io.ReadAll(*body)
 	if err != nil {
