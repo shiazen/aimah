@@ -18,17 +18,14 @@ import (
 )
 
 type Metrics struct {
-	ID    string   `json:"id"`              // имя метрики
-	MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
-	Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
+	ID	string	`json:"id"`	// имя метрики
+	MType string	`json:"type"`	// параметр, принимающий значение gauge или counter
+	Delta *int64	`json:"delta,omitempty"` // значение метрики в случае передачи counter
 	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
 }
 
-//type Gauge float64
-//type Counter int64
-
 type InMemoryStore struct {
-	gaugeMetrics   map[string]float64
+	gaugeMetrics	map[string]float64
 	counterMetrics map[string]int64
 }
 
@@ -177,12 +174,16 @@ func PostValueJSON(w http.ResponseWriter, r *http.Request) {
 
 	switch MetricsJSON.MType {
 	case "gauge":
-		if _, ok := datData.gaugeMetrics[MetricsJSON.ID]; ok {
-			w.Write([]byte(fmt.Sprintf("%v", datData.gaugeMetrics[MetricsJSON.ID])))
+		if val, ok := datData.gaugeMetrics[MetricsJSON.ID]; ok {
+			MetricsJSON.Value = &val
+			w.Write(jsonify(MetricsJSON))
+			MetricsJSON.Value = nil
 		}
 	case "counter":
-		if _, ok := datData.counterMetrics[MetricsJSON.ID]; ok {
-			w.Write([]byte(fmt.Sprintf("%v", datData.counterMetrics[MetricsJSON.ID])))
+		if val, ok := datData.counterMetrics[MetricsJSON.ID]; ok {
+			MetricsJSON.Delta = &val
+			w.Write(jsonify(MetricsJSON))
+			MetricsJSON.Delta = nil
 		}
 	default:
 		http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
@@ -200,4 +201,12 @@ func DeJSONify(body *io.ReadCloser) Metrics {
 		log.Fatal(err)
 	}
 	return theMetrics
+}
+
+func jsonify(m Metrics) []byte {
+	p, err := json.Marshal(m)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return p
 }
