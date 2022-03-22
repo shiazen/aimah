@@ -5,15 +5,17 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
-	"math/rand"
+	"runtime"
 	"net/http"
+	"math/rand"
+	"time"
+	"reflect"
+	"log"
 	"os"
 	"os/signal"
 	"reflect"
 	"runtime"
 	"syscall"
-	"time"
 )
 
 var memStats = [27]string{"Alloc", "BuckHashSys", "Frees",
@@ -60,7 +62,7 @@ func main() {
 
 	for {
 		select {
-		case datSignal := <-SigChan:
+			case datSignal := <-SigChan:
 			switch datSignal {
 			case syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
 				fmt.Printf("\nSignal %v triggered.\n", datSignal)
@@ -98,7 +100,22 @@ func main() {
 			} else {
 				query = fmt.Sprintf("%v:%v/update/%v/%v/%v", serverAddress, serverPort, "counter", "PollCount", Counter)
 				sendStuff(client, query, Payload, "text/plain")
+
 			}
+			case <-TickerPoll.C:
+				runtime.ReadMemStats(&ms)
+				RandomValue = rand.Float64()
+				Counter++
+			case <-TickerSend.C:
+				//fmt.Println(Counter, RandomValue)
+				for i, varName := range memStats {
+					varValue := getField(&ms, memStats[i])
+					varType := "gauge"
+					query := fmt.Sprintf("%v:%v/update/%v/%v/%v", serverAddress, serverPort, varType, varName, varValue)
+					sendStuff(client, query)
+				}
+				sendStuff(client, fmt.Sprintf("%v:%v/update/%v/%v/%v", serverAddress, serverPort, "gauge", "RandomValue", RandomValue))
+				sendStuff(client, fmt.Sprintf("%v:%v/update/%v/%v/%v", serverAddress, serverPort, "counter", "PollCount", Counter))
 		}
 	}
 }
