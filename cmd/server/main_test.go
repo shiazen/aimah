@@ -10,8 +10,8 @@ import (
 
 func TestService(t *testing.T) {
 
-datData.counterMetrics = make(map[string]Counter)
-datData.gaugeMetrics = make(map[string]Gauge)
+datData.counterMetrics = make(map[string]int64)
+datData.gaugeMetrics = make(map[string]float64)
 
 	type want struct {
 		code        int
@@ -23,6 +23,8 @@ datData.gaugeMetrics = make(map[string]Gauge)
 		name   string
 		query  string
 		method string
+		body   io.Reader
+		header string
 		want   want
 	}{
 		{
@@ -68,7 +70,7 @@ datData.gaugeMetrics = make(map[string]Gauge)
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := httptest.NewRequest(tt.method, tt.query, nil)
+			request := httptest.NewRequest(tt.method, tt.query, tt.body)
 			w := httptest.NewRecorder()
 			h := http.Handler(service())
 			h.ServeHTTP(w, request)

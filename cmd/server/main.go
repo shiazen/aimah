@@ -127,6 +127,7 @@ func MetricGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func MetricPost(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain")
 	metricType := chi.URLParam(r, "type")
 	metricName := chi.URLParam(r, "name")
 	rawMetricValue := chi.URLParam(r, "value")
