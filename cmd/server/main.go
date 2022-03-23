@@ -18,22 +18,32 @@ import (
 )
 
 type Metrics struct {
-	ID    string   `json:"id"`
-	MType string   `json:"type"`
-	Delta *int64   `json:"delta,omitempty"`
+	ID	string	`json:"id"`
+	MType string	`json:"type"`
+	Delta *int64	`json:"delta,omitempty"`
 	Value *float64 `json:"value,omitempty"`
 }
 
 type InMemoryStore struct {
-	gaugeMetrics   map[string]float64
+	gaugeMetrics	map[string]float64
 	counterMetrics map[string]int64
+}
+
+var config = map[string]string{
+	"ADDRESS":	"127.0.0.1:8080",
 }
 
 var datData = &InMemoryStore{gaugeMetrics: map[string]float64{}, counterMetrics: map[string]int64{}}
 
 func main() {
 
-	server := &http.Server{Addr: "127.0.0.1:8080", Handler: service()}
+	for k := range config {
+		if val, ok := os.LookupEnv(k); ok {
+			config[k] = val
+		}
+	}
+
+	server := &http.Server{Addr: config["ADDRESS"], Handler: service()}
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
 
 	sig := make(chan os.Signal, 1)

@@ -48,11 +48,26 @@ func TestService(t *testing.T) {
 			want:   want{code: 200, response: "<html><body><p>RandomValue 2</p></body></html>", contentType: "text/html"},
 		},
 		{
-			name:   "POST metrics READ JSON gauge test",
+			name:   "POST metrics READ JSON gauge test #1",
 			query:  "/value/",
 			method: "POST",
 			body:   "{\"id\": \"RandomValue\", \"type\": \"gauge\"}",
 			want:   want{code: 200, response: "{\"id\":\"RandomValue\",\"type\":\"gauge\",\"value\":2}", contentType: "application/json"},
+		},
+		{
+			name:        "POST metrics WRITE JSON counter test #1",
+			query:       "/update/",
+			contentType: "application/json",
+			method:      "POST",
+			body:        "{\"id\": \"RandomValue\", \"type\": \"gauge\", \"value\": 0.7}",
+			want:        want{code: 200, contentType: "text/plain"},
+		},
+		{
+			name:   "POST metrics READ JSON gauge test #2",
+			query:  "/value/",
+			method: "POST",
+			body:   "{\"id\": \"RandomValue\", \"type\": \"gauge\"}",
+			want:   want{code: 200, response: "{\"id\":\"RandomValue\",\"type\":\"gauge\",\"value\":0.7}", contentType: "application/json"},
 		},
 		{
 			name:        "POST metrics WRITE JSON counter test #1",

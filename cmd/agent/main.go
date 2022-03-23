@@ -37,8 +37,7 @@ type Metrics struct {
 }
 
 var config = map[string]string{
-	"ADDRESS":         "127.0.0.1",
-	"PORT":            "8080",
+	"ADDRESS":         "127.0.0.1:8080",
 	"POLL_INTERVAL":   "2",
 	"REPORT_INTERVAL": "10",
 }
@@ -58,7 +57,6 @@ func main() {
 	}
 	//for k, v := range config { fmt.Printf("%s -> %s\n", k, v) }
 
-	serverPort := 8080
 	serverAddress := config["ADDRESS"]
 	pollInterval, err := strconv.Atoi(config["POLL_INTERVAL"])
 	if err != nil {
@@ -103,21 +101,21 @@ func main() {
 				varType := "gauge"
 				if *jsonPtr {
 					Payload = jsonify(Metrics{ID: varName, MType: varType, Value: &varValue})
-					query = fmt.Sprintf("http://%v:%v/update/", serverAddress, serverPort)
-					fmt.Println(string(Payload))
+					query = fmt.Sprintf("http://%v/update/", serverAddress)
+					// fmt.Println(string(Payload))
 					sendStuff(client, query, Payload, "application/json")
 				} else {
-					query = fmt.Sprintf("http://%v:%v/update/%v/%v/%v", serverAddress, serverPort, varType, varName, varValue)
+					query = fmt.Sprintf("http://%v/update/%v/%v/%v", serverAddress, varType, varName, varValue)
 					sendStuff(client, query, Payload, "text/plain")
 				}
 			}
 			if *jsonPtr {
 				Payload = jsonify(Metrics{ID: "PollCount", MType: "counter", Delta: &Counter})
-				fmt.Println(string(Payload))
-				query = fmt.Sprintf("http://%v:%v/update/", serverAddress, serverPort)
+				// fmt.Println(string(Payload))
+				query = fmt.Sprintf("http://%v/update/", serverAddress)
 				sendStuff(client, query, Payload, "application/json")
 			} else {
-				query = fmt.Sprintf("http://%v:%v/update/%v/%v/%v", serverAddress, serverPort, "counter", "PollCount", Counter)
+				query = fmt.Sprintf("http://%v/update/%v/%v/%v", serverAddress, "counter", "PollCount", Counter)
 				sendStuff(client, query, Payload, "text/plain")
 			}
 		}
