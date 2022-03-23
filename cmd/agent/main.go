@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -30,10 +31,10 @@ var Counter int64
 var RandomValue float64
 
 type Metrics struct {
-	ID    string   `json:"id"`              // имя метрики
-	MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
-	Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
-	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
+	ID    string   `json:"id"`
+	MType string   `json:"type"`
+	Delta *int64   `json:"delta,omitempty"`
+	Value *float64 `json:"value,omitempty"`
 }
 
 var config = map[string]string{
@@ -47,10 +48,20 @@ func main() {
 	client := &http.Client{}
 
 	jsonPtr := flag.Bool("j", true, "talk to server in json")
-	flag.Parse()
+	//flag.Parse()
 	//fmt.Println(*jsonPtr)
 
+	positional := make(map[string]*string)
 	for k := range config {
+		letter := strings.ToLower(k[0:1])
+		positional[k] = flag.String(letter, config[k], k)
+	}
+	flag.Parse()
+
+	for k := range config {
+		if positional[k] != nil {
+			config[k] = *positional[k]
+		}
 		if val, ok := os.LookupEnv(k); ok {
 			config[k] = val
 		}
@@ -102,7 +113,7 @@ func main() {
 				if *jsonPtr {
 					Payload = jsonify(Metrics{ID: varName, MType: varType, Value: &varValue})
 					query = fmt.Sprintf("http://%v/update/", serverAddress)
-					// fmt.Println(string(Payload))
+					//fmt.Println(string(Payload))
 					sendStuff(client, query, Payload, "application/json")
 				} else {
 					query = fmt.Sprintf("http://%v/update/%v/%v/%v", serverAddress, varType, varName, varValue)
@@ -111,7 +122,7 @@ func main() {
 			}
 			if *jsonPtr {
 				Payload = jsonify(Metrics{ID: "PollCount", MType: "counter", Delta: &Counter})
-				// fmt.Println(string(Payload))
+				//fmt.Println(string(Payload))
 				query = fmt.Sprintf("http://%v/update/", serverAddress)
 				sendStuff(client, query, Payload, "application/json")
 			} else {
