@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"reflect"
 	"runtime"
+	"strconv"
 	"syscall"
 	"time"
 )
@@ -35,18 +36,38 @@ type Metrics struct {
 	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
 }
 
+var config = map[string]string{
+	"ADDRESS":         "127.0.0.1",
+	"PORT":            "8080",
+	"POLL_INTERVAL":   "2",
+	"REPORT_INTERVAL": "10",
+}
+
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	client := &http.Client{}
 
-	jsonPtr := flag.Bool("j", false, "talk to server in json")
+	jsonPtr := flag.Bool("j", true, "talk to server in json")
 	flag.Parse()
-	fmt.Println(*jsonPtr)
+	//fmt.Println(*jsonPtr)
 
-	var pollInterval = 2
-	var reportInterval = 10
-	serverAddress := "http://127.0.0.1"
+	for k := range config {
+		if val, ok := os.LookupEnv(k); ok {
+			config[k] = val
+		}
+	}
+	//for k, v := range config { fmt.Printf("%s -> %s\n", k, v) }
+
 	serverPort := 8080
+	serverAddress := config["ADDRESS"]
+	pollInterval, err := strconv.Atoi(config["POLL_INTERVAL"])
+	if err != nil {
+		log.Fatal(err)
+	}
+	reportInterval, err := strconv.Atoi(config["REPORT_INTERVAL"])
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	TickerPoll := time.NewTicker(time.Duration(pollInterval) * time.Second)
 	defer TickerPoll.Stop()
@@ -82,21 +103,21 @@ func main() {
 				varType := "gauge"
 				if *jsonPtr {
 					Payload = jsonify(Metrics{ID: varName, MType: varType, Value: &varValue})
-					query = fmt.Sprintf("%v:%v/update/", serverAddress, serverPort)
+					query = fmt.Sprintf("http://%v:%v/update/", serverAddress, serverPort)
 					fmt.Println(string(Payload))
 					sendStuff(client, query, Payload, "application/json")
 				} else {
-					query = fmt.Sprintf("%v:%v/update/%v/%v/%v", serverAddress, serverPort, varType, varName, varValue)
+					query = fmt.Sprintf("http://%v:%v/update/%v/%v/%v", serverAddress, serverPort, varType, varName, varValue)
 					sendStuff(client, query, Payload, "text/plain")
 				}
 			}
 			if *jsonPtr {
 				Payload = jsonify(Metrics{ID: "PollCount", MType: "counter", Delta: &Counter})
 				fmt.Println(string(Payload))
-				query = fmt.Sprintf("%v:%v/update/", serverAddress, serverPort)
+				query = fmt.Sprintf("http://%v:%v/update/", serverAddress, serverPort)
 				sendStuff(client, query, Payload, "application/json")
 			} else {
-				query = fmt.Sprintf("%v:%v/update/%v/%v/%v", serverAddress, serverPort, "counter", "PollCount", Counter)
+				query = fmt.Sprintf("http://%v:%v/update/%v/%v/%v", serverAddress, serverPort, "counter", "PollCount", Counter)
 				sendStuff(client, query, Payload, "text/plain")
 			}
 		}
