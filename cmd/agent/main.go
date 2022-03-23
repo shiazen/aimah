@@ -39,7 +39,7 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 	client := &http.Client{}
 
-	jsonPtr := flag.Bool("j", true, "talk to server in json")
+	jsonPtr := flag.Bool("j", false, "talk to server in json")
 	flag.Parse()
 	fmt.Println(*jsonPtr)
 

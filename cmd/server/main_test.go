@@ -4,14 +4,11 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
-
 func TestService(t *testing.T) {
-
-datData.counterMetrics = make(map[string]int64)
-datData.gaugeMetrics = make(map[string]float64)
 
 	type want struct {
 		code        int
@@ -20,57 +17,70 @@ datData.gaugeMetrics = make(map[string]float64)
 	}
 
 	tests := []struct {
-		name   string
-		query  string
-		method string
-		body   io.Reader
-		header string
-		want   want
+		name        string
+		query       string
+		method      string
+		body        string
+		contentType string
+		want        want
 	}{
 		{
-			name:  "metrics list test #1 (empty)",
-			query: "/", //meaningless here
-			method:	"GET",
-			want: want{
-				code:        200,
-				response:    "<html><body></body></html>",
-				contentType: "text/html",
-			},
+			name:   "GET metrics LIST test (empty)",
+			query:  "/",
+			method: "GET",
+			want:   want{code: 200, response: "<html><body></body></html>", contentType: "text/html"},
 		},
 		{
-			name:  "metrics post test #1",
-			query: "/update/gauge/RandomValue/2",
-			method:	"POST",
-			want: want{
-				code:        200,
-				response:    "",
-				contentType: "text/plain",
-			},
+			name:   "POST metrics WRITE test",
+			query:  "/update/gauge/RandomValue/2",
+			method: "POST",
+			want:   want{code: 200, contentType: "text/plain"}},
+		{
+			name:   "GET metrics READ test",
+			query:  "/value/gauge/RandomValue",
+			method: "GET",
+			want:   want{code: 200, response: "2", contentType: "text/plain"},
 		},
 		{
-			name:  "metrics get test #1",
-			query: "/value/gauge/RandomValue",
-			method:	"GET",
-			want: want{
-				code:        200,
-				response:    "2",
-				contentType: "text/plain",
-			},
+			name:   "GET metrics LIST test",
+			query:  "/",
+			method: "GET",
+			want:   want{code: 200, response: "<html><body><p>RandomValue 2</p></body></html>", contentType: "text/html"},
 		},
 		{
-			name:  "metrics list test #2",
-			query: "/", //meaningless here
-			method:	"GET",
-			want: want{
-				code:        200,
-				response:    "<html><body><p>RandomValue 2</p></body></html>",
-				contentType: "text/html",
-			},
+			name:   "POST metrics READ JSON gauge test",
+			query:  "/value/",
+			method: "POST",
+			body:   "{\"id\": \"RandomValue\", \"type\": \"gauge\"}",
+			want:   want{code: 200, response: "{\"id\":\"RandomValue\",\"type\":\"gauge\",\"value\":2}", contentType: "application/json"},
+		},
+		{
+			name:        "POST metrics WRITE JSON counter test #1",
+			query:       "/update/",
+			contentType: "application/json",
+			method:      "POST",
+			body:        "{\"id\": \"TestCounter\", \"type\": \"counter\", \"delta\": 777}",
+			want:        want{code: 200, contentType: "text/plain"},
+		},
+		{
+			name:        "POST metrics WRITE JSON counter test #2",
+			query:       "/update/",
+			contentType: "application/json",
+			method:      "POST",
+			body:        "{\"id\": \"TestCounter\", \"type\": \"counter\", \"delta\": 111}",
+			want:        want{code: 200, contentType: "text/plain"},
+		},
+		{
+			name:   "POST metrics READ JSON counter test #2",
+			query:  "/value/",
+			method: "POST",
+			body:   "{\"id\": \"TestCounter\", \"type\": \"counter\"}",
+			want:   want{code: 200, response: "{\"id\":\"TestCounter\",\"type\":\"counter\",\"delta\":888}", contentType: "application/json"},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := httptest.NewRequest(tt.method, tt.query, tt.body)
+			request := httptest.NewRequest(tt.method, tt.query, strings.NewReader(tt.body))
 			w := httptest.NewRecorder()
 			h := http.Handler(service())
 			h.ServeHTTP(w, request)

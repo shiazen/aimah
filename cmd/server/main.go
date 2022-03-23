@@ -18,23 +18,20 @@ import (
 )
 
 type Metrics struct {
-	ID	string	`json:"id"`	// имя метрики
-	MType string	`json:"type"`	// параметр, принимающий значение gauge или counter
-	Delta *int64	`json:"delta,omitempty"` // значение метрики в случае передачи counter
-	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
+	ID    string   `json:"id"`
+	MType string   `json:"type"`
+	Delta *int64   `json:"delta,omitempty"`
+	Value *float64 `json:"value,omitempty"`
 }
 
 type InMemoryStore struct {
-	gaugeMetrics	map[string]float64
+	gaugeMetrics   map[string]float64
 	counterMetrics map[string]int64
 }
 
-var datData InMemoryStore
+var datData = &InMemoryStore{gaugeMetrics: map[string]float64{}, counterMetrics: map[string]int64{}}
 
 func main() {
-
-	datData.gaugeMetrics = make(map[string]float64)
-	datData.counterMetrics = make(map[string]int64)
 
 	server := &http.Server{Addr: "127.0.0.1:8080", Handler: service()}
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
@@ -98,7 +95,7 @@ func MetricList(w http.ResponseWriter, r *http.Request) {
 }
 
 func MetricGet(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("content-type", "text/plain")
+	w.Header().Set("Content-Type", "text/plain")
 	if metricAction := chi.URLParam(r, "action"); metricAction == "value" {
 		metricType := chi.URLParam(r, "type")
 		metricName := chi.URLParam(r, "name")
@@ -150,6 +147,7 @@ func MetricPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func PostUpdateJSON(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain")
 
 	MetricsJSON := DeJSONify(&r.Body)
 
@@ -177,13 +175,17 @@ func PostValueJSON(w http.ResponseWriter, r *http.Request) {
 		if val, ok := datData.gaugeMetrics[MetricsJSON.ID]; ok {
 			MetricsJSON.Value = &val
 			w.Write(jsonify(MetricsJSON))
-			MetricsJSON.Value = nil
+			// MetricsJSON.Value = nil
+		} else {
+			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		}
 	case "counter":
 		if val, ok := datData.counterMetrics[MetricsJSON.ID]; ok {
 			MetricsJSON.Delta = &val
 			w.Write(jsonify(MetricsJSON))
-			MetricsJSON.Delta = nil
+			// MetricsJSON.Delta = nil
+		} else {
+			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		}
 	default:
 		http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
