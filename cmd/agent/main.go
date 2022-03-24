@@ -38,7 +38,7 @@ type Metrics struct {
 }
 
 var config = map[string]string{
-	"ADDRESS":         "127.0.0.1:8080",
+	"ADDRESS":         "127.1:8080",
 	"POLL_INTERVAL":   "2",
 	"REPORT_INTERVAL": "10",
 }

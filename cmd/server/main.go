@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -17,27 +19,45 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-type Metrics struct {
-	ID	string	`json:"id"`
-	MType string	`json:"type"`
-	Delta *int64	`json:"delta,omitempty"`
-	Value *float64 `json:"value,omitempty"`
-}
-
 type InMemoryStore struct {
-	gaugeMetrics	map[string]float64
+	gaugeMetrics   map[string]float64
 	counterMetrics map[string]int64
 }
 
+type Metrics struct {
+	ID    string   `json:"id"`
+	MType string   `json:"type"`
+	Delta *int64   `json:"delta,omitempty"`
+	Value *float64 `json:"value,omitempty"`
+}
+
 var config = map[string]string{
-	"ADDRESS":	"127.0.0.1:8080",
+	"ADDRESS":        "127.1:8080",
+	"RESTORE":        "true",
+	"STORE_INTERVAL": "300",
+	//"STORE_FILE":	"/tmp/devops-metrics-db.json",
+	"STORE_FILE": "devops-metrics-db.json",
 }
 
 var datData = &InMemoryStore{gaugeMetrics: map[string]float64{}, counterMetrics: map[string]int64{}}
 
 func main() {
 
+	positional := make(map[string]*string)
 	for k := range config {
+		letter := strings.ToLower(k[0:1])
+		if k == "STORE_FILE" { // why not FILE_STORAGE_PATH eh
+			//letter = strings.ToLower(k[6:7])
+			letter = "f"
+		}
+		positional[k] = flag.String(letter, config[k], k)
+	}
+	flag.Parse()
+
+	for k := range config {
+		if positional[k] != nil {
+			config[k] = *positional[k]
+		}
 		if val, ok := os.LookupEnv(k); ok {
 			config[k] = val
 		}
@@ -45,6 +65,12 @@ func main() {
 
 	server := &http.Server{Addr: config["ADDRESS"], Handler: service()}
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
+
+	storeInterval, err := strconv.Atoi(config["STORE_INTERVAL"])
+	check(err)
+
+	TickerStore := time.NewTicker(time.Duration(storeInterval) * time.Second)
+	defer TickerStore.Stop()
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
@@ -62,13 +88,11 @@ func main() {
 		}()
 
 		err := server.Shutdown(shutdownCtx)
-		if err != nil {
-			log.Fatal(err)
-		}
+		check(err)
 		serverStopCtx()
 	}()
 
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
@@ -205,20 +229,26 @@ func PostValueJSON(w http.ResponseWriter, r *http.Request) {
 func DeJSONify(body *io.ReadCloser) Metrics {
 	theMetrics := Metrics{}
 	byteStreamBody, err := io.ReadAll(*body)
-	if err != nil {
-		log.Fatal(err)
-	}
+	check(err)
 	err = json.Unmarshal(byteStreamBody, &theMetrics)
-	if err != nil {
-		log.Fatal(err)
-	}
+	check(err)
 	return theMetrics
 }
 
 func jsonify(m Metrics) []byte {
 	p, err := json.Marshal(m)
-	if err != nil {
-		log.Fatal(err)
-	}
+	check(err)
 	return p
+}
+
+func check(e error) {
+	if e != nil {
+		// panic(e)
+		log.Fatal(e)
+	}
+}
+
+func storeJson(j []byte, f string) {
+	err := os.WriteFile(f, j, 0644)
+	check(err)
 }
