@@ -50,6 +50,8 @@ func main() {
 		if k == "STORE_FILE" { // why not FILE_STORAGE_PATH eh
 			//letter = strings.ToLower(k[6:7])
 			letter = "f"
+		} else if k == "STORE_INTERVAL" {
+			letter = "i"
 		}
 		positional[k] = flag.String(letter, config[k], k)
 	}
@@ -66,11 +68,15 @@ func main() {
 
 	server := &http.Server{Addr: config["ADDRESS"], Handler: service()}
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
+	var storeInterval time.Duration
 
-	storeInterval, err := strconv.Atoi(config["STORE_INTERVAL"])
-	check(err)
+	if tmpStoreInterval, err := strconv.Atoi(config["STORE_INTERVAL"]); err == nil {
+		storeInterval = time.Duration(tmpStoreInterval) * time.Second
+	} else if tmpStoreInterval, err := time.ParseDuration(config["STORE_INTERVAL"]); err == nil {
+		storeInterval = tmpStoreInterval
+	}
 
-	TickerStore := time.NewTicker(time.Duration(storeInterval) * time.Second)
+	TickerStore := time.NewTicker(storeInterval)
 	defer TickerStore.Stop()
 
 	sig := make(chan os.Signal, 1)
@@ -93,7 +99,7 @@ func main() {
 		serverStopCtx()
 	}()
 
-	err = server.ListenAndServe()
+	err := server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
