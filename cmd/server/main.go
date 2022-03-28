@@ -37,8 +37,7 @@ var config = map[string]string{
 	"ADDRESS":        "127.1:8080",
 	"RESTORE":        "true",
 	"STORE_INTERVAL": "300",
-	//"STORE_FILE":	"/tmp/devops-metrics-db.json",
-	"STORE_FILE": "devops-metrics-db.json",
+	"STORE_FILE":     "/tmp/devops-metrics-db.json",
 }
 
 var datData = &InMemoryStore{gaugeMetrics: map[string]float64{}, counterMetrics: map[string]int64{}}
@@ -72,11 +71,15 @@ func main() {
 
 	if restoreb, err := strconv.ParseBool(config["RESTORE"]); err == nil {
 		if restoreb {
-			JSONFile, err := os.ReadFile(config["STORE_FILE"])
-			check(err)
-			PopulateInMemoryStore(JSONFile, datData)
+			if JSONFile, err := os.ReadFile(config["STORE_FILE"]); err == nil {
+				PopulateInMemoryStore(JSONFile, datData)
+			} else {
+				log.Print(err)
+			}
 		}
-	} else { check(err) }
+	} else {
+		check(err)
+	}
 
 	// --- json file store ticker
 	var storeInterval time.Duration
@@ -84,13 +87,15 @@ func main() {
 		storeInterval = time.Duration(tmpStoreInterval) * time.Second
 	} else if tmpStoreInterval, err := time.ParseDuration(config["STORE_INTERVAL"]); err == nil {
 		storeInterval = tmpStoreInterval
-	} else { check(err) }
+	} else {
+		check(err)
+	}
 
 	if storeInterval > 0 {
-		var TickerStore *time.Ticker 
-		TickerStore = time.NewTicker(storeInterval) 
+		var TickerStore *time.Ticker
+		TickerStore = time.NewTicker(storeInterval)
 		defer TickerStore.Stop()
-		go func(){
+		go func() {
 			for {
 				<-TickerStore.C
 				JSONByteArray := ExtractFromInMemoryStore(datData)
@@ -98,7 +103,7 @@ func main() {
 				check(err)
 			}
 		}()
-	} 
+	}
 	// ----------------- ----------
 
 	//----- chi examples/graceful copypaste
@@ -123,7 +128,7 @@ func main() {
 		check(err)
 		serverStopCtx()
 	}()
-	
+
 	err := server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
@@ -357,8 +362,11 @@ func ExtractFromInMemoryStore(ims *InMemoryStore) []byte {
 func PopulateInMemoryStore(j []byte, ims *InMemoryStore) {
 	var mj []*Metrics
 	err := json.Unmarshal(j, &mj)
-	check(err)
-	for k := range mj {
-		InsertInMemoryStore(mj[k], ims)
+	if err == nil {
+		for k := range mj {
+			InsertInMemoryStore(mj[k], ims)
+		}
+	} else {
+		log.Print(err)
 	}
 }
