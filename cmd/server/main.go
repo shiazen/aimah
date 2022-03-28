@@ -92,8 +92,7 @@ func main() {
 	}
 
 	if storeInterval > 0 {
-		var TickerStore *time.Ticker
-		TickerStore = time.NewTicker(storeInterval)
+		TickerStore := time.NewTicker(storeInterval)
 		defer TickerStore.Stop()
 		go func() {
 			for {
@@ -318,16 +317,16 @@ func InsertInMemoryStore(m *Metrics, s *InMemoryStore) error {
 		if m.Value != nil {
 			s.gaugeMetrics[m.ID] = *m.Value
 		} else {
-			return errors.New("Type not specified")
+			return errors.New("type not specified")
 		}
 	case "counter":
 		if m.Delta != nil {
 			s.counterMetrics[m.ID] += *m.Delta
 		} else {
-			return errors.New("Type not specified")
+			return errors.New("type not specified")
 		}
 	default:
-		return errors.New("Unknown type specified")
+		return errors.New("unknown type specified")
 	}
 	return nil
 }
