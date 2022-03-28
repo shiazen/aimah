@@ -69,39 +69,43 @@ func main() {
 	server := &http.Server{Addr: config["ADDRESS"], Handler: service()}
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
 
-	if restoreb, err := strconv.ParseBool(config["RESTORE"]); err == nil {
-		if restoreb {
-			if JSONFile, err := os.ReadFile(config["STORE_FILE"]); err == nil {
-				PopulateInMemoryStore(JSONFile, datData)
-			} else {
-				log.Print(err)
+	// file storage/restore
+	if config["STORE_FILE"] != "" {
+
+		if restoreb, err := strconv.ParseBool(config["RESTORE"]); err == nil {
+			if restoreb {
+				if JSONFile, err := os.ReadFile(config["STORE_FILE"]); err == nil {
+					PopulateInMemoryStore(JSONFile, datData)
+				} else {
+					log.Print(err)
+				}
 			}
+		} else {
+			check(err)
 		}
-	} else {
-		check(err)
-	}
 
-	// --- json file store ticker
-	var storeInterval time.Duration
-	if tmpStoreInterval, err := strconv.Atoi(config["STORE_INTERVAL"]); err == nil {
-		storeInterval = time.Duration(tmpStoreInterval) * time.Second
-	} else if tmpStoreInterval, err := time.ParseDuration(config["STORE_INTERVAL"]); err == nil {
-		storeInterval = tmpStoreInterval
-	} else {
-		check(err)
-	}
+		// --- json file store ticker
+		var storeInterval time.Duration
+		if tmpStoreInterval, err := strconv.Atoi(config["STORE_INTERVAL"]); err == nil {
+			storeInterval = time.Duration(tmpStoreInterval) * time.Second
+		} else if tmpStoreInterval, err := time.ParseDuration(config["STORE_INTERVAL"]); err == nil {
+			storeInterval = tmpStoreInterval
+		} else {
+			check(err)
+		}
 
-	if storeInterval > 0 {
-		TickerStore := time.NewTicker(storeInterval)
-		defer TickerStore.Stop()
-		go func() {
-			for {
-				<-TickerStore.C
-				JSONByteArray := ExtractFromInMemoryStore(datData)
-				err := os.WriteFile(config["STORE_FILE"], JSONByteArray, 0644)
-				check(err)
-			}
-		}()
+		if storeInterval > 0 {
+			TickerStore := time.NewTicker(storeInterval)
+			defer TickerStore.Stop()
+			go func() {
+				for {
+					<-TickerStore.C
+					JSONByteArray := ExtractFromInMemoryStore(datData)
+					err := os.WriteFile(config["STORE_FILE"], JSONByteArray, 0644)
+					check(err)
+				}
+			}()
+		}
 	}
 	// ----------------- ----------
 
@@ -119,11 +123,13 @@ func main() {
 			}
 		}()
 
-		JSONByteArray := ExtractFromInMemoryStore(datData)
-		err := os.WriteFile(config["STORE_FILE"], JSONByteArray, 0644)
-		check(err)
+		if config["STORE_FILE"] != "" {
+			JSONByteArray := ExtractFromInMemoryStore(datData)
+			err := os.WriteFile(config["STORE_FILE"], JSONByteArray, 0644)
+			check(err)
+		}
 
-		err = server.Shutdown(shutdownCtx)
+		err := server.Shutdown(shutdownCtx)
 		check(err)
 		serverStopCtx()
 	}()
@@ -141,7 +147,7 @@ func service() http.Handler {
 
 	r.Use(middleware.RequestID)
 	//r.Use(middleware.Logger)
-	//r.Use(gzipHandle)
+	r.Use(gzipHandle)
 
 	r.Get("/", MetricList)
 	r.Get("/json", MetricListJSON)
@@ -242,7 +248,6 @@ func PostValueJSON(w http.ResponseWriter, r *http.Request) {
 		if val, ok := datData.gaugeMetrics[MetricsJSON.ID]; ok {
 			MetricsJSON.Value = &val
 			w.Write(jsonify(MetricsJSON))
-			// MetricsJSON.Value = nil
 		} else {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		}
@@ -250,7 +255,6 @@ func PostValueJSON(w http.ResponseWriter, r *http.Request) {
 		if val, ok := datData.counterMetrics[MetricsJSON.ID]; ok {
 			MetricsJSON.Delta = &val
 			w.Write(jsonify(MetricsJSON))
-			// MetricsJSON.Delta = nil
 		} else {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		}
