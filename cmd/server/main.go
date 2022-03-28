@@ -1,9 +1,10 @@
 package main
 
 import (
+	"compress/gzip"
 	"context"
 	"encoding/json"
-	"compress/gzip"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -15,27 +16,26 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	"errors"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
 type InMemoryStore struct {
-	gaugeMetrics	map[string]float64
+	gaugeMetrics   map[string]float64
 	counterMetrics map[string]int64
 }
 
 type Metrics struct {
-	ID	string	`json:"id"`
-	MType string	`json:"type"`
-	Delta *int64	`json:"delta,omitempty"`
+	ID    string   `json:"id"`
+	MType string   `json:"type"`
+	Delta *int64   `json:"delta,omitempty"`
 	Value *float64 `json:"value,omitempty"`
 }
 
 var config = map[string]string{
-	"ADDRESS":	"127.1:8080",
-	"RESTORE":	"true",
+	"ADDRESS":        "127.1:8080",
+	"RESTORE":        "true",
 	"STORE_INTERVAL": "300",
 	//"STORE_FILE":	"/tmp/devops-metrics-db.json",
 	"STORE_FILE": "devops-metrics-db.json",
@@ -48,7 +48,7 @@ func main() {
 	positional := make(map[string]*string)
 	for k := range config {
 		letter := strings.ToLower(k[0:1]) // made sense for agent
-		if k == "STORE_FILE" { // why not FILE_STORAGE_PATH eh
+		if k == "STORE_FILE" {            // why not FILE_STORAGE_PATH eh
 			//letter = strings.ToLower(k[6:7])
 			letter = "f"
 		} else if k == "STORE_INTERVAL" {
@@ -69,26 +69,45 @@ func main() {
 
 	server := &http.Server{Addr: config["ADDRESS"], Handler: service()}
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
-	var storeInterval time.Duration
 
+	if restoreb, err := strconv.ParseBool(config["RESTORE"]); err == nil {
+		if restoreb {
+			JSONFile, err := os.ReadFile(config["STORE_FILE"])
+			check(err)
+			PopulateInMemoryStore(JSONFile, datData)
+		}
+	} else { check(err) }
+
+	// --- json file store ticker
+	var storeInterval time.Duration
 	if tmpStoreInterval, err := strconv.Atoi(config["STORE_INTERVAL"]); err == nil {
 		storeInterval = time.Duration(tmpStoreInterval) * time.Second
 	} else if tmpStoreInterval, err := time.ParseDuration(config["STORE_INTERVAL"]); err == nil {
 		storeInterval = tmpStoreInterval
-	}
+	} else { check(err) }
 
-	TickerStore := time.NewTicker(storeInterval)
-	defer TickerStore.Stop()
+	if storeInterval > 0 {
+		var TickerStore *time.Ticker 
+		TickerStore = time.NewTicker(storeInterval) 
+		defer TickerStore.Stop()
+		go func(){
+			for {
+				<-TickerStore.C
+				JSONByteArray := ExtractFromInMemoryStore(datData)
+				err := os.WriteFile(config["STORE_FILE"], JSONByteArray, 0644)
+				check(err)
+			}
+		}()
+	} 
+	// ----------------- ----------
 
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-
+	//----- chi examples/graceful copypaste
+	SigChan := make(chan os.Signal, 1)
+	signal.Notify(SigChan, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	go func() {
-		<-sig
-
+		<-SigChan
 		shutdownCtx, cancel := context.WithTimeout(serverCtx, 30*time.Second)
 		defer cancel()
-
 		go func() {
 			<-shutdownCtx.Done()
 			if shutdownCtx.Err() == context.DeadlineExceeded {
@@ -96,31 +115,24 @@ func main() {
 			}
 		}()
 
-		err := server.Shutdown(shutdownCtx)
+		JSONByteArray := ExtractFromInMemoryStore(datData)
+		err := os.WriteFile(config["STORE_FILE"], JSONByteArray, 0644)
+		check(err)
+
+		err = server.Shutdown(shutdownCtx)
 		check(err)
 		serverStopCtx()
 	}()
-
+	
 	err := server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
-
 	<-serverCtx.Done()
+	// -------- ------------------------
 }
 
 func service() http.Handler {
-	if restoreb, err := strconv.ParseBool(config["RESTORE"]); err == nil{
-		if restoreb {
-			JSONFile, err := os.ReadFile(config["STORE_FILE"])
-			check(err)
-			PopulateInMemoryStore(JSONFile, datData)
-		}
-	}
-	//Z := ExtractFromInMemoryStore(datData)
-	//err = os.WriteFile(config["STORE_FILE"], Z, 0644)
-	//check(err)
-
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
@@ -136,7 +148,6 @@ func service() http.Handler {
 
 	return r
 }
-
 
 func MetricList(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "text/html")
@@ -212,7 +223,9 @@ func PostUpdateJSON(w http.ResponseWriter, r *http.Request) {
 
 	MetricsJSON := DeJSONify(&r.Body)
 	err := InsertInMemoryStore(&MetricsJSON, datData)
-	if err != nil {	http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented) }
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
+	}
 }
 
 func PostValueJSON(w http.ResponseWriter, r *http.Request) {
@@ -272,75 +285,79 @@ type gzipWriter struct {
 
 func (w gzipWriter) Write(b []byte) (int, error) {
 	return w.Writer.Write(b)
-} 
+}
 
 func gzipHandle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-	next.ServeHTTP(w, r)
-	return
-	}
-	gz, err := gzip.NewWriterLevel(w, gzip.BestSpeed)
-	if err != nil {
-	io.WriteString(w, err.Error())
-	return
-	}
-	defer gz.Close()
+		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		gz, err := gzip.NewWriterLevel(w, gzip.BestSpeed)
+		if err != nil {
+			io.WriteString(w, err.Error())
+			return
+		}
+		defer gz.Close()
 
-	w.Header().Set("Content-Encoding", "gzip")
-	next.ServeHTTP(gzipWriter{ResponseWriter: w, Writer: gz}, r)
+		w.Header().Set("Content-Encoding", "gzip")
+		next.ServeHTTP(gzipWriter{ResponseWriter: w, Writer: gz}, r)
 	})
 }
+
 // ------- -----------------------
 
 func InsertInMemoryStore(m *Metrics, s *InMemoryStore) error {
 	switch m.MType {
-		case "gauge":
-			if m.Value != nil {
-				s.gaugeMetrics[m.ID] = *m.Value
-			} else { return errors.New("Type not specified") }
-		case "counter":
-			if m.Delta != nil {
-				s.counterMetrics[m.ID] += *m.Delta
-			} else { return errors.New("Type not specified") }
-		default:
-			return errors.New("Unknown type specified")
+	case "gauge":
+		if m.Value != nil {
+			s.gaugeMetrics[m.ID] = *m.Value
+		} else {
+			return errors.New("Type not specified")
+		}
+	case "counter":
+		if m.Delta != nil {
+			s.counterMetrics[m.ID] += *m.Delta
+		} else {
+			return errors.New("Type not specified")
+		}
+	default:
+		return errors.New("Unknown type specified")
 	}
 	return nil
 }
 
-
 func ExtractFromInMemoryStore(ims *InMemoryStore) []byte {
-var mj []Metrics
+	var mj []Metrics
 
-for k := range ims.gaugeMetrics {
-	var m Metrics
-	var g []float64
-	g = append(g, ims.gaugeMetrics[k])
-	m.MType = "gauge"
-	m.ID = k
-	m.Value = &g[len(g)-1]
-	mj = append(mj, m)
-}
+	for k := range ims.gaugeMetrics {
+		var m Metrics
+		var g []float64
+		g = append(g, ims.gaugeMetrics[k])
+		m.MType = "gauge"
+		m.ID = k
+		m.Value = &g[len(g)-1]
+		mj = append(mj, m)
+	}
 
-for k := range ims.counterMetrics {
-	var m Metrics
-	var c []int64
-	c = append(c, ims.counterMetrics[k])
-	m.MType = "counter"
-	m.ID = k
-	m.Delta = &c[len(c)-1]
-	mj = append(mj, m)
-}
-p, err := json.Marshal(mj)
-check(err)
-return p
+	for k := range ims.counterMetrics {
+		var m Metrics
+		var c []int64
+		c = append(c, ims.counterMetrics[k])
+		m.MType = "counter"
+		m.ID = k
+		m.Delta = &c[len(c)-1]
+		mj = append(mj, m)
+	}
+	p, err := json.Marshal(mj)
+	check(err)
+	return p
 }
 
 func PopulateInMemoryStore(j []byte, ims *InMemoryStore) {
 	var mj []*Metrics
-        err := json.Unmarshal(j, &mj)
-        check(err)
+	err := json.Unmarshal(j, &mj)
+	check(err)
 	for k := range mj {
 		InsertInMemoryStore(mj[k], ims)
 	}
