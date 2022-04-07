@@ -31,6 +31,8 @@ var datData = &InMemoryStore{gaugeMetrics: map[string]float64{}, counterMetrics:
 
 func main() {
 
+var IMS = InMemoryStore{gaugeMetrics: map[string]float64{}, counterMetrics: map[string]int64{}}
+
 	positional := make(map[string]*string)
 	for k := range config {
 		letter := strings.ToLower(k[0:1]) // made sense for agent
@@ -53,7 +55,7 @@ func main() {
 		}
 	}
 
-	server := &http.Server{Addr: config["ADDRESS"], Handler: service()}
+	server := &http.Server{Addr: config["ADDRESS"], Handler: IMS.service()}
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
 
 	// file storage/restore
@@ -62,7 +64,7 @@ func main() {
 		if restoreb, err := strconv.ParseBool(config["RESTORE"]); err == nil {
 			if restoreb {
 				if JSONFile, err := os.ReadFile(config["STORE_FILE"]); err == nil {
-					PopulateInMemoryStore(JSONFile, datData)
+					IMS.PopulateInMemoryStore(JSONFile)
 				} else {
 					log.Print(err)
 				}
@@ -87,7 +89,7 @@ func main() {
 			go func() {
 				for {
 					<-TickerStore.C
-					JSONByteArray := ExtractFromInMemoryStore(datData)
+					JSONByteArray := IMS.ExtractFromInMemoryStore()
 					err := os.WriteFile(config["STORE_FILE"], JSONByteArray, 0644)
 					check(err)
 				}
@@ -111,7 +113,7 @@ func main() {
 		}()
 
 		if config["STORE_FILE"] != "" {
-			JSONByteArray := ExtractFromInMemoryStore(datData)
+			JSONByteArray := IMS.ExtractFromInMemoryStore()
 			err := os.WriteFile(config["STORE_FILE"], JSONByteArray, 0644)
 			check(err)
 		}
