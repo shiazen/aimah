@@ -7,21 +7,21 @@ import (
 )
 
 type InMemoryStore struct {
-	gaugeMetrics   map[string]float64
-	counterMetrics map[string]int64
+	gaugeMetrics	map[string]float64
+	counterMetrics	map[string]int64
 }
 
-func InsertInMemoryStore(m *Metrics, s *InMemoryStore) error {
+func (ims *InMemoryStore) InsertInMemoryStore (m *Metrics) error {
 	switch m.MType {
 	case "gauge":
 		if m.Value != nil {
-			s.gaugeMetrics[m.ID] = *m.Value
+			ims.gaugeMetrics[m.ID] = *m.Value
 		} else {
 			return errors.New("type not specified")
 		}
 	case "counter":
 		if m.Delta != nil {
-			s.counterMetrics[m.ID] += *m.Delta
+			ims.counterMetrics[m.ID] += *m.Delta
 		} else {
 			return errors.New("type not specified")
 		}
@@ -31,7 +31,7 @@ func InsertInMemoryStore(m *Metrics, s *InMemoryStore) error {
 	return nil
 }
 
-func ExtractFromInMemoryStore(ims *InMemoryStore) []byte {
+func (ims *InMemoryStore) ExtractFromInMemoryStore() []byte {
 	var mj []Metrics
 
 	for k := range ims.gaugeMetrics {
@@ -58,12 +58,12 @@ func ExtractFromInMemoryStore(ims *InMemoryStore) []byte {
 	return p
 }
 
-func PopulateInMemoryStore(j []byte, ims *InMemoryStore) {
+func (ims *InMemoryStore) PopulateInMemoryStore(j []byte) {
 	var mj []*Metrics
 	err := json.Unmarshal(j, &mj)
 	if err == nil {
 		for k := range mj {
-			InsertInMemoryStore(mj[k], ims)
+			ims.InsertInMemoryStore(mj[k])
 		}
 	} else {
 		log.Print(err)
