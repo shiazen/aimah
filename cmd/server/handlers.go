@@ -93,6 +93,10 @@ func (ims *InMemoryStore) MetricPost(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
 	}
+
+	if config["STORE_INTERVAL"] == "0" {
+		ims.StoreData(config["STORE_FILE"])
+	}
 }
 
 func (ims *InMemoryStore) PostUpdateJSON(w http.ResponseWriter, r *http.Request) {
@@ -102,6 +106,9 @@ func (ims *InMemoryStore) PostUpdateJSON(w http.ResponseWriter, r *http.Request)
 	err := ims.InsertInMemoryStore(&MetricsJSON)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
+	}
+	if config["STORE_INTERVAL"] == "0" {
+		ims.StoreData(config["STORE_FILE"])
 	}
 }
 

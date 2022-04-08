@@ -27,8 +27,6 @@ var config = map[string]string{
 	"STORE_FILE":     "/tmp/devops-metrics-db.json",
 }
 
-var datData = &InMemoryStore{gaugeMetrics: map[string]float64{}, counterMetrics: map[string]int64{}}
-
 func main() {
 
 var IMS = InMemoryStore{gaugeMetrics: map[string]float64{}, counterMetrics: map[string]int64{}}
@@ -89,9 +87,7 @@ var IMS = InMemoryStore{gaugeMetrics: map[string]float64{}, counterMetrics: map[
 			go func() {
 				for {
 					<-TickerStore.C
-					JSONByteArray := IMS.ExtractFromInMemoryStore()
-					err := os.WriteFile(config["STORE_FILE"], JSONByteArray, 0644)
-					check(err)
+						IMS.StoreData(config["STORE_FILE"])
 				}
 			}()
 		}
@@ -113,9 +109,7 @@ var IMS = InMemoryStore{gaugeMetrics: map[string]float64{}, counterMetrics: map[
 		}()
 
 		if config["STORE_FILE"] != "" {
-			JSONByteArray := IMS.ExtractFromInMemoryStore()
-			err := os.WriteFile(config["STORE_FILE"], JSONByteArray, 0644)
-			check(err)
+			IMS.StoreData(config["STORE_FILE"])
 		}
 
 		err := server.Shutdown(shutdownCtx)
@@ -129,6 +123,12 @@ var IMS = InMemoryStore{gaugeMetrics: map[string]float64{}, counterMetrics: map[
 	}
 	<-serverCtx.Done()
 	// -------- ------------------------
+}
+
+func (ims *InMemoryStore) StoreData(filename string) {
+	JSONByteArray := ims.ExtractFromInMemoryStore()
+	err := os.WriteFile(filename, JSONByteArray, 0644)
+	check(err)
 }
 
 func check(e error) {
