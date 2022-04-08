@@ -10,6 +10,8 @@ import (
 
 func TestService(t *testing.T) {
 
+var TestIMS = InMemoryStore{gaugeMetrics: map[string]float64{}, counterMetrics: map[string]int64{}}
+
 	type want struct {
 		code        int
 		response    string
@@ -97,7 +99,7 @@ func TestService(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			request := httptest.NewRequest(tt.method, tt.query, strings.NewReader(tt.body))
 			w := httptest.NewRecorder()
-			h := http.Handler(service())
+			h := http.Handler(TestIMS.service())
 			h.ServeHTTP(w, request)
 			res := w.Result()
 
