@@ -101,9 +101,14 @@ func (ims *InMemoryStore) MetricPost(w http.ResponseWriter, r *http.Request) {
 
 func (ims *InMemoryStore) PostUpdateJSON(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
+	
+	var err error
 
 	MetricsJSON := DeJSONify(&r.Body)
-	err := ims.InsertInMemoryStore(&MetricsJSON)
+	if MetricsJSON.HashCheck() {
+	err = ims.InsertInMemoryStore(&MetricsJSON)
+	} else { http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest) }
+
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
 	}

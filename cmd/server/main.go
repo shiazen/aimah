@@ -18,6 +18,7 @@ type Metrics struct {
 	MType string   `json:"type"`
 	Delta *int64   `json:"delta,omitempty"`
 	Value *float64 `json:"value,omitempty"`
+	Hash  string   `json:"hash,omitempty"`
 }
 
 var config = map[string]string{
@@ -25,6 +26,7 @@ var config = map[string]string{
 	"RESTORE":        "true",
 	"STORE_INTERVAL": "300",
 	"STORE_FILE":     "/tmp/devops-metrics-db.json",
+	"KEY":		  "jieC1Eenooth",
 }
 
 func main() {
