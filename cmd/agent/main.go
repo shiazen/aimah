@@ -16,6 +16,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"crypto/sha256"
 )
 
 var memStats = [27]string{"Alloc", "BuckHashSys", "Frees",
@@ -35,12 +36,14 @@ type Metrics struct {
 	MType string   `json:"type"`
 	Delta *int64   `json:"delta,omitempty"`
 	Value *float64 `json:"value,omitempty"`
+	Hash  string   `json:"hash,omitempty"`
 }
 
 var config = map[string]string{
 	"ADDRESS":         "127.1:8080",
 	"POLL_INTERVAL":   "2",
 	"REPORT_INTERVAL": "10",
+	"KEY":		"jieC1Eenooth",
 }
 
 func main() {
@@ -111,9 +114,15 @@ func main() {
 				varValue := getField(&ms, memStats[i])
 				varType := "gauge"
 				if *jsonPtr {
-					Payload = jsonify(Metrics{ID: varName, MType: varType, Value: &varValue})
+					if ( config["KEY"] != "" ) {
+						varHash := hash(fmt.Sprintf("%s:gauge:%f:%s", varName, varValue, config["KEY"]))
+						//fmt.Printf("%s:gauge:%f:%s\n", varName, varValue, config["KEY"]) // DEVINFO
+						Payload = jsonify(Metrics{ID: varName, MType: varType, Value: &varValue, Hash: varHash})
+					} else {
+						Payload = jsonify(Metrics{ID: varName, MType: varType, Value: &varValue})
+					}
 					query = fmt.Sprintf("http://%v/update/", serverAddress)
-					//fmt.Println(string(Payload))
+					//fmt.Println(string(Payload)) // DEVINFO
 					sendStuff(client, query, Payload, "application/json")
 				} else {
 					query = fmt.Sprintf("http://%v/update/%v/%v/%v", serverAddress, varType, varName, varValue)
@@ -121,8 +130,14 @@ func main() {
 				}
 			}
 			if *jsonPtr {
-				Payload = jsonify(Metrics{ID: "PollCount", MType: "counter", Delta: &Counter})
-				//fmt.Println(string(Payload))
+				if config["KEY"] != "" {
+					varHash := hash(fmt.Sprintf("%s:counter:%d:%s", "PollCount", Counter, config["KEY"]))
+					//fmt.Printf("%s:counter:%d:%s\n", "PollCount", Counter, config["KEY"]) // DEVINFO
+					Payload = jsonify(Metrics{ID: "PollCount", MType: "counter", Delta: &Counter, Hash: varHash})
+				} else {
+					Payload = jsonify(Metrics{ID: "PollCount", MType: "counter", Delta: &Counter})
+				}
+				//fmt.Println(string(Payload)) // DEVINFO
 				query = fmt.Sprintf("http://%v/update/", serverAddress)
 				sendStuff(client, query, Payload, "application/json")
 			} else {
@@ -150,7 +165,6 @@ func sendStuff(c *http.Client, q string, b []byte, h string) {
 		log.Fatal(err)
 	}
 	request.Header.Set("Content-Type", h)
-	//request.Header.Set("Content-Type", "application/json")
 	resp, err := c.Do(request)
 	if err != nil {
 		log.Fatal(err)
@@ -164,4 +178,10 @@ func jsonify(m Metrics) []byte {
 		log.Fatal(err)
 	}
 	return p
+}
+
+func hash(data string) string {
+	//fmt.Println(data) // DEVINFO
+	hash := sha256.Sum256([]byte(data))
+	return fmt.Sprintf("%x", string(hash[:]))
 }
