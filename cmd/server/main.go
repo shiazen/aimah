@@ -13,20 +13,13 @@ import (
 	"time"
 )
 
-type Metrics struct {
-	ID    string   `json:"id"`
-	MType string   `json:"type"`
-	Delta *int64   `json:"delta,omitempty"`
-	Value *float64 `json:"value,omitempty"`
-	Hash  string   `json:"hash,omitempty"`
-}
-
 var config = map[string]string{
 	"ADDRESS":        "127.1:8080",
 	"RESTORE":        "true",
 	"STORE_INTERVAL": "300",
 	"STORE_FILE":     "/tmp/devops-metrics-db.json",
 	"KEY":		  "jieC1Eenooth",
+	"DATABASE_DSN":   "",
 }
 
 func main() {
@@ -60,11 +53,10 @@ var IMS = InMemoryStore{gaugeMetrics: map[string]float64{}, counterMetrics: map[
 
 	// file storage/restore
 	if config["STORE_FILE"] != "" {
-
 		if restoreb, err := strconv.ParseBool(config["RESTORE"]); err == nil {
 			if restoreb {
-				if JSONFile, err := os.ReadFile(config["STORE_FILE"]); err == nil {
-					IMS.PopulateInMemoryStore(JSONFile)
+				if JSONFileContent, err := os.ReadFile(config["STORE_FILE"]); err == nil {
+					IMS.PopulateInMemoryStore(JSONFileContent)
 				} else {
 					log.Print(err)
 				}

@@ -16,17 +16,17 @@ func (ims *InMemoryStore) service() http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(gzipHandle)
 
-	r.Get("/", ims.MetricList)
-	r.Get("/json", ims.MetricListJSON)
-	r.Get("/{action}/{type}/{name}", ims.MetricGet)
-	r.Post("/update/{type}/{name}/{value}", ims.MetricPost)
-	r.Post("/update/", ims.PostUpdateJSON)
-	r.Post("/value/", ims.PostValueJSON)
+	r.Get("/", ims.ListMetricsPLAIN)
+	r.Get("/json", ims.ListMetricsJSON)
+	r.Get("/{action}/{type}/{name}", ims.ValueViaGetPLAIN)
+	r.Post("/update/{type}/{name}/{value}", ims.UpdateViaPostPLAIN)
+	r.Post("/update/", ims.UpdateViaPostJSON)
+	r.Post("/value/", ims.ValueViaPostJSON)
 
 	return r
 }
 
-func (ims *InMemoryStore) MetricList(w http.ResponseWriter, r *http.Request) {
+func (ims *InMemoryStore) ListMetricsPLAIN(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "text/html")
 	w.Write([]byte("<html><body>"))
 	for k, v := range ims.gaugeMetrics {
@@ -38,12 +38,12 @@ func (ims *InMemoryStore) MetricList(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("</body></html>"))
 }
 
-func (ims *InMemoryStore) MetricListJSON(w http.ResponseWriter, r *http.Request) {
+func (ims *InMemoryStore) ListMetricsJSON(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "application/json")
 	w.Write(ims.ExtractFromInMemoryStore())
 }
 
-func (ims *InMemoryStore) MetricGet(w http.ResponseWriter, r *http.Request) {
+func (ims *InMemoryStore) ValueViaGetPLAIN(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	if metricAction := chi.URLParam(r, "action"); metricAction == "value" {
 		metricType := chi.URLParam(r, "type")
@@ -69,7 +69,7 @@ func (ims *InMemoryStore) MetricGet(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (ims *InMemoryStore) MetricPost(w http.ResponseWriter, r *http.Request) {
+func (ims *InMemoryStore) UpdateViaPostPLAIN(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	metricType := chi.URLParam(r, "type")
 	metricName := chi.URLParam(r, "name")
@@ -99,14 +99,14 @@ func (ims *InMemoryStore) MetricPost(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (ims *InMemoryStore) PostUpdateJSON(w http.ResponseWriter, r *http.Request) {
+func (ims *InMemoryStore) UpdateViaPostJSON(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	
 	var err error
 
-	MetricsJSON := DeJSONify(&r.Body)
-	if MetricsJSON.HashCheck() {
-	err = ims.InsertInMemoryStore(&MetricsJSON)
+	MetricsFromJSON := DeJSONify(&r.Body)
+	if MetricsFromJSON.HashCheck() {
+	err = ims.InsertInMemoryStore(&MetricsFromJSON)
 	} else { http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest) }
 
 	if err != nil {
@@ -117,23 +117,23 @@ func (ims *InMemoryStore) PostUpdateJSON(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func (ims *InMemoryStore) PostValueJSON(w http.ResponseWriter, r *http.Request) {
+func (ims *InMemoryStore) ValueViaPostJSON(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	MetricsJSON := DeJSONify(&r.Body)
+	MetricsFromJSON := DeJSONify(&r.Body)
 
-	switch MetricsJSON.MType {
+	switch MetricsFromJSON.MType {
 	case "gauge":
-		if val, ok := ims.gaugeMetrics[MetricsJSON.ID]; ok {
-			MetricsJSON.Value = &val
-			w.Write(jsonify(MetricsJSON))
+		if val, ok := ims.gaugeMetrics[MetricsFromJSON.ID]; ok {
+			MetricsFromJSON.Value = &val
+			w.Write(MetricsFromJSON.jsonify())
 		} else {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		}
 	case "counter":
-		if val, ok := ims.counterMetrics[MetricsJSON.ID]; ok {
-			MetricsJSON.Delta = &val
-			w.Write(jsonify(MetricsJSON))
+		if val, ok := ims.counterMetrics[MetricsFromJSON.ID]; ok {
+			MetricsFromJSON.Delta = &val
+			w.Write(MetricsFromJSON.jsonify())
 		} else {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		}

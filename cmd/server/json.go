@@ -7,38 +7,46 @@ import (
 	"io"
 )
 
-func DeJSONify(body *io.ReadCloser) Metrics {
-	theMetrics := Metrics{}
-	byteStreamBody, err := io.ReadAll(*body)
-	check(err)
-	err = json.Unmarshal(byteStreamBody, &theMetrics)
-	check(err)
-	return theMetrics
+type Metrics struct {
+	ID    string   `json:"id"`
+	MType string   `json:"type"`
+	Delta *int64   `json:"delta,omitempty"`
+	Value *float64 `json:"value,omitempty"`
+	Hash  string   `json:"hash,omitempty"`
 }
 
-func jsonify(m Metrics) []byte {
+func DeJSONify(body *io.ReadCloser) Metrics {
+	m := Metrics{}
+	byteStreamBody, err := io.ReadAll(*body)
+	check(err)
+	err = json.Unmarshal(byteStreamBody, &m)
+	check(err)
+	return m
+}
+
+func (m *Metrics) jsonify() []byte {
 	p, err := json.Marshal(m)
 	check(err)
 	return p
 }
 
-func hash(data string) string {
-	hash := sha256.Sum256([]byte(data))
-	return fmt.Sprintf("%x", string(hash[:]))
-}
-
 func (m *Metrics) HashCheck() bool {
-	var LocalHash string
+	var ServerSideHash string
 	switch m.MType {
 	case "gauge":
-		LocalHash = hash(fmt.Sprintf("%s:gauge:%f:%s", m.ID, *m.Value, config["KEY"]))
+		ServerSideHash = hash(fmt.Sprintf("%s:gauge:%f:%s", m.ID, *m.Value, config["KEY"]))
 	case "counter":
-		LocalHash = hash(fmt.Sprintf("%s:counter:%d:%s", m.ID, *m.Delta, config["KEY"]))
+		ServerSideHash = hash(fmt.Sprintf("%s:counter:%d:%s", m.ID, *m.Delta, config["KEY"]))
 	}
-	if m.Hash == LocalHash {
+	if m.Hash == ServerSideHash {
 		return true
 	}
 return false
+}
+
+func hash(data string) string {
+	hash := sha256.Sum256([]byte(data))
+	return fmt.Sprintf("%x", string(hash[:]))
 }
 
 //func (m *Metrics) Validate() bool {
