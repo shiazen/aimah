@@ -18,7 +18,7 @@ var config = map[string]string{
 	"RESTORE":        "true",
 	"STORE_INTERVAL": "300",
 	"STORE_FILE":     "/tmp/devops-metrics-db.json",
-	"KEY":		  "jieC1Eenooth",
+	"KEY":		  "",
 	"DATABASE_DSN":   "",
 }
 

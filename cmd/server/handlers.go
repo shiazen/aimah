@@ -105,9 +105,14 @@ func (ims *InMemoryStore) UpdateViaPostJSON(w http.ResponseWriter, r *http.Reque
 	var err error
 
 	MetricsFromJSON := DeJSONify(&r.Body)
-	if MetricsFromJSON.HashCheck() {
-	err = ims.InsertInMemoryStore(&MetricsFromJSON)
-	} else { http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest) }
+
+	if ( config["KEY"] != "" ) {
+		if MetricsFromJSON.HashCheck() {
+			err = ims.InsertInMemoryStore(&MetricsFromJSON)
+		} else { http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest) }
+	} else {
+		err = ims.InsertInMemoryStore(&MetricsFromJSON)
+	}
 
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
