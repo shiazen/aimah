@@ -43,7 +43,7 @@ var config = map[string]string{
 	"ADDRESS":         "127.1:8080",
 	"POLL_INTERVAL":   "2",
 	"REPORT_INTERVAL": "10",
-	"KEY":		"jieC1Eenooth",
+	"KEY":	"",
 }
 
 func main() {
@@ -122,7 +122,7 @@ func main() {
 						Payload = jsonify(Metrics{ID: varName, MType: varType, Value: &varValue})
 					}
 					query = fmt.Sprintf("http://%v/update/", serverAddress)
-					//fmt.Println(string(Payload)) // DEVINFO
+					// fmt.Println(string(Payload)) // DEVINFO
 					sendStuff(client, query, Payload, "application/json")
 				} else {
 					query = fmt.Sprintf("http://%v/update/%v/%v/%v", serverAddress, varType, varName, varValue)
@@ -137,7 +137,7 @@ func main() {
 				} else {
 					Payload = jsonify(Metrics{ID: "PollCount", MType: "counter", Delta: &Counter})
 				}
-				//fmt.Println(string(Payload)) // DEVINFO
+				// fmt.Println(string(Payload)) // DEVINFO
 				query = fmt.Sprintf("http://%v/update/", serverAddress)
 				sendStuff(client, query, Payload, "application/json")
 			} else {
@@ -181,7 +181,8 @@ func jsonify(m Metrics) []byte {
 }
 
 func hash(data string) string {
-	//fmt.Println(data) // DEVINFO
 	hash := sha256.Sum256([]byte(data))
+	// fmt.Println(data) // DEVINFO
+	// fmt.Printf("%x\n",string(hash[:])) // DEVINFO
 	return fmt.Sprintf("%x", string(hash[:]))
 }
