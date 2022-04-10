@@ -38,10 +38,7 @@ func (m *Metrics) HashCheck() bool {
 	case "counter":
 		ServerSideHash = hash(fmt.Sprintf("%s:counter:%d:%s", m.ID, *m.Delta, config["KEY"]))
 	}
-	if m.Hash == ServerSideHash {
-		return true
-	}
-return false
+	return m.Hash == ServerSideHash
 }
 
 func hash(data string) string {
