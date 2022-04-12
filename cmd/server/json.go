@@ -18,15 +18,15 @@ type Metrics struct {
 func DeJSONify(body *io.ReadCloser) Metrics {
 	m := Metrics{}
 	byteStreamBody, err := io.ReadAll(*body)
-	check(err)
+	OnErrorFail(err)
 	err = json.Unmarshal(byteStreamBody, &m)
-	check(err)
+	OnErrorFail(err)
 	return m
 }
 
-func (m *Metrics) jsonify() []byte {
+func (m *Metrics) JSON() []byte {
 	p, err := json.Marshal(m)
-	check(err)
+	OnErrorFail(err)
 	return p
 }
 
@@ -34,16 +34,16 @@ func (m *Metrics) HashCheck() bool {
 	var ServerSideHash string
 	switch m.MType {
 	case "gauge":
-		ServerSideHash = hash(fmt.Sprintf("%s:gauge:%f:%s", m.ID, *m.Value, ConfigMap["KEY"]))
+		ServerSideHash = MkHash(fmt.Sprintf("%s:gauge:%f:%s", m.ID, *m.Value, ConfigMap["KEY"]))
 	case "counter":
-		ServerSideHash = hash(fmt.Sprintf("%s:counter:%d:%s", m.ID, *m.Delta, ConfigMap["KEY"]))
+		ServerSideHash = MkHash(fmt.Sprintf("%s:counter:%d:%s", m.ID, *m.Delta, ConfigMap["KEY"]))
 	}
 	return m.Hash == ServerSideHash
 }
 
-func hash(data string) string {
-	hash := sha256.Sum256([]byte(data))
-	return fmt.Sprintf("%x", string(hash[:]))
+func MkHash(d string) string {
+	h := sha256.Sum256([]byte(d))
+	return fmt.Sprintf("%x", string(h[:]))
 }
 
 //func (m *Metrics) Validate() bool {

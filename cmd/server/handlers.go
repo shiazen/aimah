@@ -101,15 +101,17 @@ func (ims *InMemoryStore) UpdateViaPostPLAIN(w http.ResponseWriter, r *http.Requ
 
 func (ims *InMemoryStore) UpdateViaPostJSON(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
-	
+
 	var err error
 
 	MetricsFromJSON := DeJSONify(&r.Body)
 
-	if ( ConfigMap["KEY"] != "" ) {
+	if ConfigMap["KEY"] != "" {
 		if MetricsFromJSON.HashCheck() {
 			err = ims.InsertInMemoryStore(&MetricsFromJSON)
-		} else { http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest) }
+		} else {
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		}
 	} else {
 		err = ims.InsertInMemoryStore(&MetricsFromJSON)
 	}
@@ -131,14 +133,14 @@ func (ims *InMemoryStore) ValueViaPostJSON(w http.ResponseWriter, r *http.Reques
 	case "gauge":
 		if val, ok := ims.gaugeMetrics[MetricsFromJSON.ID]; ok {
 			MetricsFromJSON.Value = &val
-			w.Write(MetricsFromJSON.jsonify())
+			w.Write(MetricsFromJSON.JSON())
 		} else {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		}
 	case "counter":
 		if val, ok := ims.counterMetrics[MetricsFromJSON.ID]; ok {
 			MetricsFromJSON.Delta = &val
-			w.Write(MetricsFromJSON.jsonify())
+			w.Write(MetricsFromJSON.JSON())
 		} else {
 			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		}

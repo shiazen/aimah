@@ -3,15 +3,14 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"log"
 )
 
 type InMemoryStore struct {
-	gaugeMetrics	map[string]float64
-	counterMetrics	map[string]int64
+	gaugeMetrics   map[string]float64
+	counterMetrics map[string]int64
 }
 
-func (ims *InMemoryStore) InsertInMemoryStore (m *Metrics) error {
+func (ims *InMemoryStore) InsertInMemoryStore(m *Metrics) error {
 	switch m.MType {
 	case "gauge":
 		if m.Value != nil {
@@ -54,7 +53,7 @@ func (ims *InMemoryStore) ExtractFromInMemoryStore() []byte {
 		mj = append(mj, m)
 	}
 	p, err := json.Marshal(mj)
-	check(err)
+	OnErrorFail(err)
 	return p
 }
 
@@ -66,6 +65,6 @@ func (ims *InMemoryStore) PopulateInMemoryStore(j []byte) {
 			ims.InsertInMemoryStore(mj[k])
 		}
 	} else {
-		log.Print(err)
+		OnErrorProceed(err)
 	}
 }

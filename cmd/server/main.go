@@ -13,7 +13,9 @@ import (
 
 func main() {
 
-var IMS = InMemoryStore{gaugeMetrics: map[string]float64{}, counterMetrics: map[string]int64{}}
+	PopulateConfig(&ConfigMap)
+
+	var IMS = InMemoryStore{gaugeMetrics: map[string]float64{}, counterMetrics: map[string]int64{}}
 
 	server := &http.Server{Addr: ConfigMap["ADDRESS"], Handler: IMS.service()}
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
@@ -29,7 +31,7 @@ var IMS = InMemoryStore{gaugeMetrics: map[string]float64{}, counterMetrics: map[
 				}
 			}
 		} else {
-			check(err)
+			OnErrorFail(err)
 		}
 
 		// --- json file store ticker
@@ -39,7 +41,7 @@ var IMS = InMemoryStore{gaugeMetrics: map[string]float64{}, counterMetrics: map[
 		} else if tmpStoreInterval, err := time.ParseDuration(ConfigMap["STORE_INTERVAL"]); err == nil {
 			storeInterval = tmpStoreInterval
 		} else {
-			check(err)
+			OnErrorFail(err)
 		}
 
 		if storeInterval > 0 {
@@ -48,7 +50,7 @@ var IMS = InMemoryStore{gaugeMetrics: map[string]float64{}, counterMetrics: map[
 			go func() {
 				for {
 					<-TickerStore.C
-						IMS.StoreData(ConfigMap["STORE_FILE"])
+					IMS.StoreData(ConfigMap["STORE_FILE"])
 				}
 			}()
 		}
@@ -74,7 +76,7 @@ var IMS = InMemoryStore{gaugeMetrics: map[string]float64{}, counterMetrics: map[
 		}
 
 		err := server.Shutdown(shutdownCtx)
-		check(err)
+		OnErrorFail(err)
 		serverStopCtx()
 	}()
 
@@ -86,14 +88,14 @@ var IMS = InMemoryStore{gaugeMetrics: map[string]float64{}, counterMetrics: map[
 	// -------- ------------------------
 }
 
-func (ims *InMemoryStore) StoreData(filename string) {
-	JSONByteArray := ims.ExtractFromInMemoryStore()
-	err := os.WriteFile(filename, JSONByteArray, 0644)
-	check(err)
-}
-
-func check(e error) {
+func OnErrorFail(e error) {
 	if e != nil {
 		log.Fatal(e)
+	}
+}
+
+func OnErrorProceed(e error) {
+	if e != nil {
+		log.Print(e)
 	}
 }

@@ -10,7 +10,7 @@ import (
 
 func TestService(t *testing.T) {
 
-var TestIMS = InMemoryStore{gaugeMetrics: map[string]float64{}, counterMetrics: map[string]int64{}}
+	var TestIMS = InMemoryStore{gaugeMetrics: map[string]float64{}, counterMetrics: map[string]int64{}}
 
 	type want struct {
 		code        int

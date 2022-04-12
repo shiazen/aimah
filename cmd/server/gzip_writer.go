@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// ------- gzipWriter copy paste
+//  gzipWriter copypaste
 type gzipWriter struct {
 	http.ResponseWriter
 	Writer io.Writer
@@ -34,5 +34,3 @@ func gzipHandle(next http.Handler) http.Handler {
 		next.ServeHTTP(gzipWriter{ResponseWriter: w, Writer: gz}, r)
 	})
 }
-
-// ------- -----------------------
