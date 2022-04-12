@@ -94,8 +94,8 @@ func (ims *InMemoryStore) UpdateViaPostPLAIN(w http.ResponseWriter, r *http.Requ
 		http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
 	}
 
-	if config["STORE_INTERVAL"] == "0" {
-		ims.StoreData(config["STORE_FILE"])
+	if ConfigMap["STORE_INTERVAL"] == "0" {
+		ims.StoreData(ConfigMap["STORE_FILE"])
 	}
 }
 
@@ -106,7 +106,7 @@ func (ims *InMemoryStore) UpdateViaPostJSON(w http.ResponseWriter, r *http.Reque
 
 	MetricsFromJSON := DeJSONify(&r.Body)
 
-	if ( config["KEY"] != "" ) {
+	if ( ConfigMap["KEY"] != "" ) {
 		if MetricsFromJSON.HashCheck() {
 			err = ims.InsertInMemoryStore(&MetricsFromJSON)
 		} else { http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest) }
@@ -117,8 +117,8 @@ func (ims *InMemoryStore) UpdateViaPostJSON(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
 	}
-	if config["STORE_INTERVAL"] == "0" {
-		ims.StoreData(config["STORE_FILE"])
+	if ConfigMap["STORE_INTERVAL"] == "0" {
+		ims.StoreData(ConfigMap["STORE_FILE"])
 	}
 }
 

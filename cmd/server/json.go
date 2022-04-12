@@ -34,9 +34,9 @@ func (m *Metrics) HashCheck() bool {
 	var ServerSideHash string
 	switch m.MType {
 	case "gauge":
-		ServerSideHash = hash(fmt.Sprintf("%s:gauge:%f:%s", m.ID, *m.Value, config["KEY"]))
+		ServerSideHash = hash(fmt.Sprintf("%s:gauge:%f:%s", m.ID, *m.Value, ConfigMap["KEY"]))
 	case "counter":
-		ServerSideHash = hash(fmt.Sprintf("%s:counter:%d:%s", m.ID, *m.Delta, config["KEY"]))
+		ServerSideHash = hash(fmt.Sprintf("%s:counter:%d:%s", m.ID, *m.Delta, ConfigMap["KEY"]))
 	}
 	return m.Hash == ServerSideHash
 }
