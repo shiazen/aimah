@@ -59,9 +59,9 @@ func main() {
 		letter := strings.ToLower(k[0:1])
 		positional[k] = flag.String(letter, ConfigMap[k], k)
 	}
-	//fmt.Println(*jsonPtr,*BulkPtr)
+	//log.Println(*jsonPtr,*BulkPtr)
 	flag.Parse() // this flips SOME booleans for some reason
-	//fmt.Println(*jsonPtr,*BulkPtr)
+	//log.Println(*jsonPtr,*BulkPtr)
 
 	for k := range ConfigMap {
 		if positional[k] != nil {
@@ -71,7 +71,7 @@ func main() {
 			ConfigMap[k] = val
 		}
 	}
-	//for k, v := range ConfigMap { fmt.Printf("%s -> %s\n", k, v) }
+	//for k, v := range ConfigMap { log.Printf("%s -> %s\n", k, v) }
 
 	// had a bad time with boolean flags, so
 	bulkJSON, err := strconv.ParseBool(ConfigMap["BULK"])
@@ -100,10 +100,10 @@ func main() {
 		case datSignal := <-SigChan:
 			switch datSignal {
 			case syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
-				fmt.Printf("\nSignal %v triggered.\n", datSignal)
+				log.Printf("\nSignal %v triggered.\n", datSignal)
 				os.Exit(0)
 			default:
-				fmt.Printf("\nSignal %v triggered.\n", datSignal)
+				log.Printf("\nSignal %v triggered.\n", datSignal)
 				os.Exit(1)
 			}
 		case <-TickerPoll.C:
@@ -181,8 +181,8 @@ func jsonify(m Metrics) []byte {
 
 func hash(data string) string {
 	hash := sha256.Sum256([]byte(data))
-	// fmt.Println(data) // DEVINFO
-	// fmt.Printf("%x\n",string(hash[:])) // DEVINFO
+	// log.Println(data) // DEVINFO
+	// log.Printf("%x\n",string(hash[:])) // DEVINFO
 	return fmt.Sprintf("%x", string(hash[:]))
 }
 

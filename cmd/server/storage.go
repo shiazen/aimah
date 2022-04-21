@@ -31,7 +31,7 @@ func (ims *InMemoryStore) StoreStuff() bool {
 			for {
 				<-ims.saverchan
 				ims.DumpInMemoryStoreToPG(dbConn)
-				//fmt.Println("DB triggered") // DEVINFO
+				// log.Println("DB triggered") // DEVINFO
 			}
 		}()
 	} else if ConfigMap["STORE_FILE"] != "" {
@@ -48,7 +48,7 @@ func (ims *InMemoryStore) StoreStuff() bool {
 			for {
 				<-ims.saverchan
 				ims.StoreDataInFile(ConfigMap["STORE_FILE"])
-				//fmt.Println("File triggered") // DEVINFO
+				// log.Println("File triggered") // DEVINFO
 			}
 		}()
 	} else {
@@ -64,7 +64,7 @@ func LaunchStoreTicker(s string, ch chan struct{}) {
 			defer TickerStore.Stop()
 			for {
 				<-TickerStore.C
-				//fmt.Println("TickerStore tick") // DEVINFO
+				// log.Println("TickerStore tick") // DEVINFO
 				ch <- struct{}{}
 			}
 		}()
@@ -100,8 +100,8 @@ func PGInsertJSON(conn *pgx.Conn, j []byte) {
 	OnErrorProceed(err)
 }
 
-//	fmt.Printf("%s\n", string(PGSelectJSON(dbConn, "RandomValue"))) // DEVINFO
-//	fmt.Println("StoreDBChan EXTRACT") // DEVINFO
+//	log.Printf("%s\n", string(PGSelectJSON(dbConn, "RandomValue"))) // DEVINFO
+//	log.Println("StoreDBChan EXTRACT") // DEVINFO
 func PGSelectJSON(conn *pgx.Conn, s string) []byte {
 	var js []byte
 	err := conn.QueryRow(context.Background(), "SELECT metric FROM metrics WHERE (metric->>'id' = $1)", s).Scan(&js)
