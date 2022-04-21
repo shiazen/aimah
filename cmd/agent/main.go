@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -16,7 +17,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	"crypto/sha256"
 )
 
 var memStats = [27]string{"Alloc", "BuckHashSys", "Frees",
@@ -39,47 +39,51 @@ type Metrics struct {
 	Hash  string   `json:"hash,omitempty"`
 }
 
-var config = map[string]string{
+var ConfigMap = map[string]string{
 	"ADDRESS":         "127.1:8080",
 	"POLL_INTERVAL":   "2",
 	"REPORT_INTERVAL": "10",
-	"KEY":	"",
+	"KEY":             "",
+	"JSON":            "false",
+	"BULK":            "true",
 }
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	client := &http.Client{}
 
-	jsonPtr := flag.Bool("j", true, "talk to server in json")
-	//flag.Parse()
-	//fmt.Println(*jsonPtr)
-
+	//jsonPtr := flag.Bool("j", false, "talk to server in json")
+	//BulkPtr := flag.Bool("b", true, "sent metrics as jsons in bulk")
 	positional := make(map[string]*string)
-	for k := range config {
+	for k := range ConfigMap {
 		letter := strings.ToLower(k[0:1])
-		positional[k] = flag.String(letter, config[k], k)
+		positional[k] = flag.String(letter, ConfigMap[k], k)
 	}
-	flag.Parse()
+	//fmt.Println(*jsonPtr,*BulkPtr)
+	flag.Parse() // this flips SOME booleans for some reason
+	//fmt.Println(*jsonPtr,*BulkPtr)
 
-	for k := range config {
+	for k := range ConfigMap {
 		if positional[k] != nil {
-			config[k] = *positional[k]
+			ConfigMap[k] = *positional[k]
 		}
 		if val, ok := os.LookupEnv(k); ok {
-			config[k] = val
+			ConfigMap[k] = val
 		}
 	}
-	//for k, v := range config { fmt.Printf("%s -> %s\n", k, v) }
+	//for k, v := range ConfigMap { fmt.Printf("%s -> %s\n", k, v) }
 
-	serverAddress := config["ADDRESS"]
-	pollInterval, err := strconv.Atoi(config["POLL_INTERVAL"])
-	if err != nil {
-		log.Fatal(err)
-	}
-	reportInterval, err := strconv.Atoi(config["REPORT_INTERVAL"])
-	if err != nil {
-		log.Fatal(err)
-	}
+	// had a bad time with boolean flags, so
+	bulkJson, err := strconv.ParseBool(ConfigMap["BULK"])
+	OnErrorFail(err)
+	sendJson, err := strconv.ParseBool(ConfigMap["JSON"])
+	OnErrorFail(err)
+
+	serverAddress := ConfigMap["ADDRESS"]
+	pollInterval, err := strconv.Atoi(ConfigMap["POLL_INTERVAL"])
+	OnErrorFail(err)
+	reportInterval, err := strconv.Atoi(ConfigMap["REPORT_INTERVAL"])
+	OnErrorFail(err)
 
 	TickerPoll := time.NewTicker(time.Duration(pollInterval) * time.Second)
 	defer TickerPoll.Stop()
@@ -107,42 +111,44 @@ func main() {
 			RandomValue = rand.Float64()
 			Counter++
 		case <-TickerSend.C:
-			var query string
-			var Payload []byte
-
-			for i, varName := range memStats {
-				varValue := getField(&ms, memStats[i])
-				varType := "gauge"
-				if *jsonPtr {
-					if ( config["KEY"] != "" ) {
-						varHash := hash(fmt.Sprintf("%s:gauge:%f:%s", varName, varValue, config["KEY"]))
-						//fmt.Printf("%s:gauge:%f:%s\n", varName, varValue, config["KEY"]) // DEVINFO
-						Payload = jsonify(Metrics{ID: varName, MType: varType, Value: &varValue, Hash: varHash})
-					} else {
-						Payload = jsonify(Metrics{ID: varName, MType: varType, Value: &varValue})
-					}
-					query = fmt.Sprintf("http://%v/update/", serverAddress)
-					// fmt.Println(string(Payload)) // DEVINFO
-					sendStuff(client, query, Payload, "application/json")
-				} else {
-					query = fmt.Sprintf("http://%v/update/%v/%v/%v", serverAddress, varType, varName, varValue)
-					sendStuff(client, query, Payload, "text/plain")
+			if !(sendJson || bulkJson) {
+				for i, varName := range memStats {
+					varValue := getField(&ms, memStats[i])
+					query := fmt.Sprintf("http://%v/update/%v/%v/%v", serverAddress, "gauge", varName, varValue)
+					sendStuff(client, query, nil, "text/plain")
 				}
-			}
-			if *jsonPtr {
-				if config["KEY"] != "" {
-					varHash := hash(fmt.Sprintf("%s:counter:%d:%s", "PollCount", Counter, config["KEY"]))
-					//fmt.Printf("%s:counter:%d:%s\n", "PollCount", Counter, config["KEY"]) // DEVINFO
-					Payload = jsonify(Metrics{ID: "PollCount", MType: "counter", Delta: &Counter, Hash: varHash})
-				} else {
-					Payload = jsonify(Metrics{ID: "PollCount", MType: "counter", Delta: &Counter})
-				}
-				// fmt.Println(string(Payload)) // DEVINFO
-				query = fmt.Sprintf("http://%v/update/", serverAddress)
-				sendStuff(client, query, Payload, "application/json")
+				query := fmt.Sprintf("http://%v/update/%v/%v/%v", serverAddress, "counter", "PollCount", Counter)
+				sendStuff(client, query, nil, "text/plain")
 			} else {
-				query = fmt.Sprintf("http://%v/update/%v/%v/%v", serverAddress, "counter", "PollCount", Counter)
-				sendStuff(client, query, Payload, "text/plain")
+				var mj []Metrics
+				for i, varName := range memStats {
+					varValue := getField(&ms, memStats[i])
+
+					mj = append(mj, Metrics{ID: varName, MType: "gauge", Value: &varValue})
+					if ConfigMap["KEY"] != "" {
+						mj[i].BuildHash()
+					}
+
+					if !bulkJson && sendJson {
+						query := fmt.Sprintf("http://%v/update/", serverAddress)
+						sendStuff(client, query, mj[i].JSON(), "application/json")
+					}
+				}
+
+				mj = append(mj, Metrics{ID: "PollCount", MType: "counter", Delta: &Counter})
+				if ConfigMap["KEY"] != "" {
+					mj[len(mj)-1].BuildHash()
+				}
+				if !bulkJson && sendJson {
+					query := fmt.Sprintf("http://%v/update/", serverAddress)
+					sendStuff(client, query, mj[len(mj)-1].JSON(), "application/json")
+				} else {
+					p, err := json.Marshal(mj)
+					OnErrorFail(err)
+					fmt.Println(string(p))
+					query := fmt.Sprintf("http://%v/updates/", serverAddress)
+					sendStuff(client, query, p, "application/json")
+				}
 			}
 		}
 	}
@@ -161,22 +167,16 @@ func getField(v *runtime.MemStats, field string) float64 {
 
 func sendStuff(c *http.Client, q string, b []byte, h string) {
 	request, err := http.NewRequest(http.MethodPost, q, bytes.NewReader(b))
-	if err != nil {
-		log.Fatal(err)
-	}
+	OnErrorFail(err)
 	request.Header.Set("Content-Type", h)
 	resp, err := c.Do(request)
-	if err != nil {
-		log.Fatal(err)
-	}
+	OnErrorFail(err)
 	resp.Body.Close()
 }
 
 func jsonify(m Metrics) []byte {
 	p, err := json.Marshal(m)
-	if err != nil {
-		log.Fatal(err)
-	}
+	OnErrorFail(err)
 	return p
 }
 
@@ -185,4 +185,28 @@ func hash(data string) string {
 	// fmt.Println(data) // DEVINFO
 	// fmt.Printf("%x\n",string(hash[:])) // DEVINFO
 	return fmt.Sprintf("%x", string(hash[:]))
+}
+
+func (m *Metrics) BuildHash() bool {
+	switch m.MType {
+	case "gauge":
+		m.Hash = hash(fmt.Sprintf("%s:%s:%f:%s", m.ID, m.MType, *m.Value, ConfigMap["KEY"]))
+	case "counter":
+		m.Hash = hash(fmt.Sprintf("%s:%s:%d:%s", m.ID, m.MType, *m.Delta, ConfigMap["KEY"]))
+	default:
+		return false
+	}
+	return true
+}
+
+func (m *Metrics) JSON() []byte {
+	p, err := json.Marshal(m)
+	OnErrorFail(err)
+	return p
+}
+
+func OnErrorFail(e error) {
+	if e != nil {
+		log.Fatal(e)
+	}
 }
