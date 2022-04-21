@@ -8,6 +8,7 @@ import (
 type InMemoryStore struct {
 	gaugeMetrics   map[string]float64
 	counterMetrics map[string]int64
+	saverchan      chan struct{}
 }
 
 func (ims *InMemoryStore) InsertInMemoryStore(m *Metrics) error {

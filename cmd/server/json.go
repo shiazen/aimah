@@ -24,6 +24,15 @@ func DeJSONify(body *io.ReadCloser) Metrics {
 	return m
 }
 
+func DeJSONifyArray(body *io.ReadCloser) []Metrics {
+	m := []Metrics{}
+	byteStreamBody, err := io.ReadAll(*body)
+	OnErrorFail(err)
+	err = json.Unmarshal(byteStreamBody, &m)
+	OnErrorFail(err)
+	return m
+}
+
 func (m *Metrics) JSON() []byte {
 	p, err := json.Marshal(m)
 	OnErrorFail(err)

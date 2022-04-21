@@ -21,6 +21,7 @@ func (ims *InMemoryStore) service() http.Handler {
 	r.Get("/{action}/{type}/{name}", ims.ValueViaGetPLAIN)
 	r.Post("/update/{type}/{name}/{value}", ims.UpdateViaPostPLAIN)
 	r.Post("/update/", ims.UpdateViaPostJSON)
+	r.Post("/updates/", ims.BulkUpdateViaPostJSON)
 	r.Post("/value/", ims.ValueViaPostJSON)
 
 	return r
@@ -95,7 +96,7 @@ func (ims *InMemoryStore) UpdateViaPostPLAIN(w http.ResponseWriter, r *http.Requ
 	}
 
 	if ConfigMap["STORE_INTERVAL"] == "0" {
-		ims.StoreData(ConfigMap["STORE_FILE"])
+		ims.saverchan <- struct{}{}
 	}
 }
 
@@ -120,7 +121,22 @@ func (ims *InMemoryStore) UpdateViaPostJSON(w http.ResponseWriter, r *http.Reque
 		http.Error(w, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
 	}
 	if ConfigMap["STORE_INTERVAL"] == "0" {
-		ims.StoreData(ConfigMap["STORE_FILE"])
+		ims.saverchan <- struct{}{}
+	}
+}
+
+func (ims *InMemoryStore) BulkUpdateViaPostJSON(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain")
+
+	var mj []Metrics
+
+	mj = DeJSONifyArray(&r.Body)
+	for k := range mj {
+		ims.InsertInMemoryStore(&mj[k])
+	}
+
+	if ConfigMap["STORE_INTERVAL"] == "0" {
+		ims.saverchan <- struct{}{}
 	}
 }
 

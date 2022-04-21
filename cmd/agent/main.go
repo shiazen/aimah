@@ -145,7 +145,6 @@ func main() {
 				} else {
 					p, err := json.Marshal(mj)
 					OnErrorFail(err)
-					fmt.Println(string(p))
 					query := fmt.Sprintf("http://%v/updates/", serverAddress)
 					sendStuff(client, query, p, "application/json")
 				}
