@@ -128,9 +128,7 @@ func (ims *InMemoryStore) UpdateViaPostJSON(w http.ResponseWriter, r *http.Reque
 func (ims *InMemoryStore) BulkUpdateViaPostJSON(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 
-	var mj []Metrics
-
-	mj = DeJSONifyArray(&r.Body)
+	mj := DeJSONifyArray(&r.Body)
 	for k := range mj {
 		ims.InsertInMemoryStore(&mj[k])
 	}

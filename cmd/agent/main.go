@@ -74,9 +74,9 @@ func main() {
 	//for k, v := range ConfigMap { fmt.Printf("%s -> %s\n", k, v) }
 
 	// had a bad time with boolean flags, so
-	bulkJson, err := strconv.ParseBool(ConfigMap["BULK"])
+	bulkJSON, err := strconv.ParseBool(ConfigMap["BULK"])
 	OnErrorFail(err)
-	sendJson, err := strconv.ParseBool(ConfigMap["JSON"])
+	sendJSON, err := strconv.ParseBool(ConfigMap["JSON"])
 	OnErrorFail(err)
 
 	serverAddress := ConfigMap["ADDRESS"]
@@ -111,7 +111,7 @@ func main() {
 			RandomValue = rand.Float64()
 			Counter++
 		case <-TickerSend.C:
-			if !(sendJson || bulkJson) {
+			if !(sendJSON || bulkJSON) {
 				for i, varName := range memStats {
 					varValue := getField(&ms, memStats[i])
 					query := fmt.Sprintf("http://%v/update/%v/%v/%v", serverAddress, "gauge", varName, varValue)
@@ -129,7 +129,7 @@ func main() {
 						mj[i].BuildHash()
 					}
 
-					if !bulkJson && sendJson {
+					if !bulkJSON && sendJSON {
 						query := fmt.Sprintf("http://%v/update/", serverAddress)
 						sendStuff(client, query, mj[i].JSON(), "application/json")
 					}
@@ -139,7 +139,7 @@ func main() {
 				if ConfigMap["KEY"] != "" {
 					mj[len(mj)-1].BuildHash()
 				}
-				if !bulkJson && sendJson {
+				if !bulkJSON && sendJSON {
 					query := fmt.Sprintf("http://%v/update/", serverAddress)
 					sendStuff(client, query, mj[len(mj)-1].JSON(), "application/json")
 				} else {
